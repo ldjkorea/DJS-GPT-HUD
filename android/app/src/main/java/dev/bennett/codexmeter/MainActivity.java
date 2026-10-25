@@ -778,7 +778,8 @@ public final class MainActivity extends AppCompatActivity {
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         boolean signedIn = tokens != null;
 
-        LinearLayout account = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        boolean stackedAccount=getResources().getConfiguration().fontScale>1.3f||getResources().getConfiguration().screenWidthDp<360;
+        LinearLayout account = Ui.horizontal(this, Gravity.CENTER_VERTICAL);if(stackedAccount)account.setOrientation(LinearLayout.VERTICAL);
         ImageView avatar = new ImageView(this);
         avatar.setImageResource(R.drawable.codex_profile_avatar);
         Ui.makeAvatar(avatar);
@@ -787,13 +788,13 @@ public final class MainActivity extends AppCompatActivity {
         identity.setOrientation(LinearLayout.VERTICAL);
         String titleText = signedIn ? MainActivity.this.getString(R.string.ui_chatgpt_account_b7b4fe) : MainActivity.this.getString(R.string.ui_not_connected_8b02f3);
         TextView title = Ui.text(this, titleText, 18.0f, Ui.mainText(this.dark));
-        title.setSingleLine(true);
+        title.setSingleLine(false);
         identity.addView(title);
         TextView subtitle = Ui.text(this, signedIn && !tokens.email.isEmpty() ? tokens.email : (signedIn ? MainActivity.this.getString(R.string.ui_connected_c2f9b7) : MainActivity.this.getString(R.string.ui_sign_in_to_view_your_usage_912b66)), 14.0f, Ui.secondaryText(this.dark));
         subtitle.setSingleLine(true);
         subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         identity.addView(subtitle);
-        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(stackedAccount?-1:0, -2, stackedAccount?0:1.0f);
         identityParams.setMargins(Ui.dp(this, 20.0f), 0, Ui.dp(this, 10.0f), 0);
         account.addView(identity, identityParams);
         if (signedIn && snapshot != null) {
@@ -805,7 +806,7 @@ public final class MainActivity extends AppCompatActivity {
             badge.setBackground(Ui.pillBackground(this, this.dark));
             account.addView(badge);
         }
-        linearLayoutCard.addView(account, new LinearLayout.LayoutParams(-1, Ui.dp(this, 55.0f)));
+        linearLayoutCard.addView(account, new LinearLayout.LayoutParams(-1, -2));
 
         View divider = new View(this);
         divider.setBackgroundColor(Ui.divider(this.dark));
@@ -813,18 +814,20 @@ public final class MainActivity extends AppCompatActivity {
         dividerParams.setMargins(0, Ui.dp(this, 10.0f), 0, Ui.dp(this, 10.0f));
         linearLayoutCard.addView(divider, dividerParams);
 
-        LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
+        LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);if(stackedAccount)linearLayoutHorizontal.setOrientation(LinearLayout.VERTICAL);
         if (!signedIn) {
             Button button = Ui.button(this, AppPreferences.isOAuthPending(this) ? MainActivity.this.getString(R.string.ui_continue_sign_in_cd1418) : MainActivity.this.getString(R.string.ui_sign_in_with_chatgpt_fe0b3b), true, this.dark);
+            button.setMinHeight(Ui.dp(this,48));button.setSingleLine(false);
             button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.3
                 @Override // android.view.View.OnClickListener
                 public void onClick(View view) {
                     MainActivity.this.startOrContinueSignIn();
                 }
             });
-            linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
+            linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(stackedAccount?-1:0, -2, stackedAccount?0:1.0f));
         } else {
             final Button button2 = Ui.button(this, MainActivity.this.getString(R.string.ui_refresh_56e3ba), true, this.dark);
+            button2.setMinHeight(Ui.dp(this,48));button2.setSingleLine(false);
             button2.setCompoundDrawables(null, null, null, null);
             button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.4
                 @Override // android.view.View.OnClickListener
@@ -832,10 +835,11 @@ public final class MainActivity extends AppCompatActivity {
                     MainActivity.this.refreshNow(button2);
                 }
             });
-            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
+            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(stackedAccount?-1:0, -2, stackedAccount?0:1.0f));
             Button button3 = Ui.button(this, MainActivity.this.getString(R.string.ui_sign_out_dc1649), false, this.dark);
+            button3.setMinHeight(Ui.dp(this,48));button3.setSingleLine(false);
             button3.setCompoundDrawables(null, null, null, null);
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
+            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(stackedAccount?-1:0, -2, stackedAccount?0:1.0f);
             layoutParams4.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
             linearLayoutHorizontal.addView(button3, layoutParams4);
             button3.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.5
@@ -845,7 +849,7 @@ public final class MainActivity extends AppCompatActivity {
                 }
             });
         }
-        linearLayoutCard.addView(linearLayoutHorizontal, new LinearLayout.LayoutParams(-1, Ui.dp(this, 74.0f)));
+        linearLayoutCard.addView(linearLayoutHorizontal, new LinearLayout.LayoutParams(-1, -2));
         return linearLayoutCard;
     }
 

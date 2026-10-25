@@ -6,6 +6,17 @@ import android.graphics.drawable.*;
 import android.view.*;
 import android.widget.*;
 final class BetaUi {
+    static int warning(boolean dark){return dark?0xffffbd7a:0xff8c3f00;}
+    static LinearLayout linkedGroup(LinearLayout parent,String heading,String label,boolean dark,Runnable run){
+        Context c=parent.getContext();LinearLayout card=group(parent,"",dark),header=new LinearLayout(c);
+        boolean stack=c.getResources().getConfiguration().fontScale>1.3f;
+        header.setOrientation(stack?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView title=title(c,heading,dark);androidx.core.view.ViewCompat.setAccessibilityHeading(title,true);
+        header.addView(title,new LinearLayout.LayoutParams(stack?-1:0,-2,stack?0:1));
+        Button action=action(c,label,false,dark,run);action.setMinWidth(Ui.dp(c,48));action.setMinimumWidth(Ui.dp(c,48));action.setTextSize(14);
+        android.util.TypedValue ripple=new android.util.TypedValue();c.getTheme().resolveAttribute(android.R.attr.selectableItemBackground,ripple,true);if(ripple.resourceId!=0)action.setBackgroundResource(ripple.resourceId);
+        header.addView(action,new LinearLayout.LayoutParams(stack?-1:-2,-2));card.addView(header);return card;
+    }
     static int accent(boolean dark){return dark?0xff8eb8ff:0xff2458a8;}
     static int accent(Context context,boolean dark){return TierTheme.accent(context,dark);}
     static TextView text(Context c,String label,int size,int color,boolean bold){TextView t=Ui.text(c,label,size,color);t.setSingleLine(false);t.setIncludeFontPadding(true);t.setLineSpacing(0,1.4f);if(bold)t.setTypeface(PretendardFont.semibold(c));return t;}

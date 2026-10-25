@@ -16,8 +16,8 @@ android {
         }
         minSdk = 26
         targetSdk = 36
-        versionCode = 91
-        versionName = "3.1.4"
+        versionCode = 92
+        versionName = "3.1.5"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -45,7 +45,7 @@ android {
 
     signingConfigs {
         create("localRelease") {
-            val signingDir = rootProject.file(".local-signing")
+            val signingDir = rootProject.file(providers.gradleProperty("releaseSigningDir").orNull ?: ".local-signing")
             val keyStore = signingDir.resolve("codex-meter-local.p12")
             val passwordFile = signingDir.resolve("password")
             if (keyStore.isFile && passwordFile.isFile) {

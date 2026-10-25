@@ -87,7 +87,7 @@
     <string name="ui_about_codex_meter_a3cb5c">"GPT HUD 정보"</string>
     <string name="ui_theme_a797e3">"테마"</string>
     <string name="ui_system_default_9d8d38">"시스템 설정 따름"</string>
-    <string name="ui_use_the_system_color_palette_when_available_4e7ae2">"지원되는 경우 시스템 색상을 사용합니다"</string>
+    <string name="ui_use_the_system_color_palette_when_available_4e7ae2">앱 강조색은 티어색을 유지합니다. 지원 화면과 위젯에 시스템 색상을 적용합니다.</string>
     <string name="ui_material_you_66eb00">"Material You"</string>
     <string name="ui_log_tracing_4d0315">"로그 기록"</string>
     <string name="ui_record_detailed_app_refresh_scheduler_wear_and_network__31f167">"앱, 새로고침, 예약 작업, Wear 및 네트워크 이벤트를 자세히 기록합니다"</string>

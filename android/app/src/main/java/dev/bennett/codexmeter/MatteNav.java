@@ -13,6 +13,7 @@ import androidx.activity.OnBackPressedCallback;
 final class MatteNav {
     private MatteNav(){}
     static void install(AppCompatActivity activity,int selected){
+        installSettings(activity);
         FrameLayout container=activity.findViewById(R.id.matte_bottom);if(container==null)return;
         boolean dark=Ui.isDark(activity);container.setVisibility(View.VISIBLE);container.setBackgroundColor(Ui.background(activity,dark));
         LinearLayout bar=new LinearLayout(activity);bar.setOrientation(LinearLayout.HORIZONTAL);bar.setPadding(Ui.dp(activity,8),Ui.dp(activity,4),Ui.dp(activity,8),Ui.dp(activity,4));bar.setBackground(LedgerUi.shape(activity,Ui.cardColor(activity,dark),18));
@@ -27,6 +28,19 @@ final class MatteNav {
             bar.addView(button,new LinearLayout.LayoutParams(0,-2,1));
         }container.removeAllViews();container.addView(bar);
         activity.getOnBackPressedDispatcher().addCallback(activity,new OnBackPressedCallback(true){public void handleOnBackPressed(){if(active==1)activity.moveTaskToBack(true);else open(activity,1);}});
+    }
+    private static void installSettings(AppCompatActivity activity){
+        dev.oneuiproject.oneui.layout.ToolbarLayout layout=activity.findViewById(R.id.toolbar_layout);
+        if(layout==null||layout.getToolbar().findViewWithTag("beta9915:settings")!=null)return;
+        android.widget.ImageButton button=new android.widget.ImageButton(activity);
+        button.setTag("beta9915:settings");button.setContentDescription(activity.getString(R.string.matte_settings));
+        button.setTooltipText(activity.getString(R.string.matte_settings));
+        button.setImageResource(R.drawable.hud_settings);button.setImageTintList(ColorStateList.valueOf(Ui.mainText(Ui.isDark(activity))));
+        button.setPadding(Ui.dp(activity,12),Ui.dp(activity,12),Ui.dp(activity,12),Ui.dp(activity,12));
+        android.util.TypedValue ripple=new android.util.TypedValue();activity.getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless,ripple,true);
+        if(ripple.resourceId!=0)button.setBackgroundResource(ripple.resourceId);
+        button.setOnClickListener(v->activity.startActivity(new Intent(activity,MeterSettingsActivity.class)));
+        layout.getToolbar().addView(button,new androidx.appcompat.widget.Toolbar.LayoutParams(Ui.dp(activity,48),Ui.dp(activity,48),android.view.Gravity.END|android.view.Gravity.CENTER_VERTICAL));
     }
     static void open(AppCompatActivity activity,int index){
         Class<?> target=index==3?GrowthActivity.class:index==0||index==2?RecordsActivity.class:MainActivity.class;

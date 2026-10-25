@@ -9,7 +9,7 @@ import java.time.*;
 
 /** Local journey, recorded recap and actionable recovery. Data loads only on the worker. */
 public final class BetaHubActivity extends AppCompatActivity {
-    LinearLayout body;boolean dark,month;String page,account;long generation;LedgerPresentation.Period usagePeriod;
+    LinearLayout body;boolean dark,month,healthBusy,healthFailed;String page,account,healthResult="";long generation;LedgerPresentation.Period usagePeriod;
     String t(String ko,String en,Object... args){return BetaExperienceUi.t(this,ko,en,args);}
     @Override protected void onCreate(Bundle saved){Ui.applySelectedTheme(this);super.onCreate(saved);dark=Ui.isDark(this);page=getIntent().getStringExtra("page");if(page==null)page="health";month=saved!=null&&saved.getBoolean("month");Ui.Page layout=Ui.installPage(this,"",true);layout.toolbar.setTitle("");body=layout.content;findViewById(R.id.dashboard_refresh).setEnabled(false);}
     @Override protected void onResume(){super.onResume();load();}
@@ -17,7 +17,7 @@ public final class BetaHubActivity extends AppCompatActivity {
     @Override protected void onDestroy(){generation++;super.onDestroy();}
     void heading(){TextView title=BetaUi.title(this,page.equals("journey")?t("성장 경로","Growth journey"):page.equals("recap")?t("기록 회고","Recorded recap"):t("연결·업데이트 복구","Connection and update recovery"),dark);androidx.core.view.ViewCompat.setAccessibilityHeading(title,true);body.addView(title);if(TrialDemo.active(this))body.addView(BetaUi.note(this,BetaCopy.t(this,"demo"),dark));}
     void load(){
-        account=SubscriptionStore.accountKey(this);body.removeAllViews();heading();
+        String currentAccount=SubscriptionStore.accountKey(this);if(!java.util.Objects.equals(account,currentAccount)){healthResult="";healthBusy=false;generation++;}account=currentAccount;body.removeAllViews();heading();
         if(page.equals("health")){health();return;}
         if(account==null){body.addView(BetaUi.body(this,BetaCopy.t(this,"no_account"),dark));return;}
         body.addView(BetaUi.note(this,t("기록 읽는 중…","Reading records…"),dark));String key=account;long ticket=++generation;
@@ -68,11 +68,22 @@ public final class BetaHubActivity extends AppCompatActivity {
         accountCard.addView(BetaUi.action(this,t("계정·로그인 열기","Open account and sign-in"),true,dark,()->MatteNav.homeAction(this,"account")));
         LinearLayout usage=BetaUi.group(body,t("사용량·수집","Usage and collection"),dark);usage.addView(BetaUi.body(this,snapshot==null?t("저장된 사용량 없음","No saved usage"):getString(R.string.next_observed_at,V3Display.time(snapshot.fetchedAtMillis)),dark));
         usage.addView(BetaUi.note(this,growth==null?t("성장 상태 확인 필요","Growth state needs checking"):growth.optBoolean("enabled")?t("성장 수집 켜짐","Growth collection on"):t("성장 수집 중지","Growth collection paused"),dark));
-        String error=AppPreferences.getLastError(this);if(!error.isEmpty())usage.addView(BetaUi.note(this,DiagnosticSanitizer.redact(error),dark));usage.addView(BetaUi.action(this,t("저장 기록 재확인","Recheck stored record"),false,dark,()->{BetaGrowthStore.refreshDisplay(this);Toast.makeText(this,t("확인 요청됨. 다시 열어 상태를 확인하세요.","Check requested. Reopen to see the result."),Toast.LENGTH_LONG).show();}));
+        String error=AppPreferences.getLastError(this);if(!error.isEmpty()){TextView warning=BetaUi.note(this,DiagnosticSanitizer.redact(error),dark);warning.setTextColor(BetaUi.warning(dark));usage.addView(warning);}
+        if(!healthResult.isEmpty()){TextView result=BetaUi.note(this,healthResult,dark);result.setTag("beta9915:recheck-result");result.setAccessibilityLiveRegion(android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE);if(healthFailed)result.setTextColor(BetaUi.warning(dark));usage.addView(result);}
+        Button recheck=BetaUi.action(this,healthBusy?t("확인 중…","Checking…"):t("저장 기록 재확인","Recheck stored record"),false,dark,this::recheckRecords);recheck.setEnabled(!healthBusy);usage.addView(recheck);
         LinearLayout update=BetaUi.group(body,t("앱 업데이트","App update"),dark);update.addView(BetaUi.body(this,AppConstants.VERSION_NAME+" · "+(getPackageManager().canRequestPackageInstalls()?t("설치 출처 허용됨","Install source allowed"):t("설치할 때 출처 허용 필요","Install source permission needed when installing")),dark));
         update.addView(BetaUi.action(this,t("업데이트 확인·재시도","Check or retry update"),true,dark,()->startActivity(new Intent(this,UpdateActivity.class))));
         body.addView(BetaUi.row(this,t("백업·복원","Backup and restore"),t("성장과 설정을 선택해 보관","Choose growth and settings"),dark,()->startActivity(new Intent(this,BetaBackupActivity.class))));
         body.addView(BetaUi.row(this,t("연결·알림 설정","Connections and notifications"),"",dark,()->startActivity(new Intent(this,MeterSettingsActivity.class))));
         body.addView(BetaUi.row(this,t("진단 정보 보기·복사","View or copy diagnostics"),t("토큰·인증 URL·대화 본문 제외","No tokens, authorization URLs or conversations"),dark,()->BetaDiagnostics.show(this)));
+    }
+    void recheckRecords(){
+        if(healthBusy)return;String expected=account;long ticket=++generation;healthBusy=true;healthFailed=false;healthResult=t("저장 기록을 확인하고 있어요","Checking stored records");body.removeAllViews();heading();health();
+        BetaGrowthStore.WORKER.execute(()->{
+            String message;boolean failed=false;
+            try{JSONObject growth=BetaGrowthStore.load(getApplicationContext(),expected);JSONObject medals=BetaMedalStore.load(getApplicationContext(),expected);message=growth==null&&medals==null?t("저장된 성장·메달 기록이 없습니다. 사용량 서버 조회는 별도입니다.","No stored growth or medal records. Usage server checks are separate."):t("저장 기록 확인 완료 · 사용량 서버 조회는 별도입니다.","Stored records checked · usage server checks are separate.");}
+            catch(Exception unavailable){failed=true;message=t("저장 기록을 읽지 못했어요. 원본을 보존했습니다. 다시 시도해 주세요.","Could not read stored records. Originals are retained. Please retry.");}
+            String outcome=message;boolean error=failed;runOnUiThread(()->{if(isDestroyed()||isFinishing()||ticket!=generation||!java.util.Objects.equals(expected,SubscriptionStore.accountKey(this)))return;healthBusy=false;healthFailed=error;healthResult=outcome;body.removeAllViews();heading();health();});
+        });
     }
 }

@@ -13,22 +13,23 @@ final class BetaCompactGrowthUi {
         if(recommended!=null){
             String label=BetaMedalUi.t(a,recommended.optBoolean("month")?"이번 달 %s":"이번 주 %s",recommended.optBoolean("month")?"This month · %s":"This week · %s",BetaMedalUi.grade(a,recommended.optInt("grade")));
             next.addView(BetaUi.title(a,label,dark));ProgressBar bar=Ui.progress(a,dark);bar.setMax(recommended.optInt("target"));bar.setProgress(recommended.optInt("current"));bar.setContentDescription(label+" "+recommended.optInt("current")+" / "+recommended.optInt("target"));next.addView(bar);
-            next.addView(BetaUi.note(a,BetaMedalUi.t(a,"기록 %d / %d일","Recorded %d / %d days",recommended.optInt("current"),recommended.optInt("target")),dark));next.addView(BetaUi.action(a,BetaMedalUi.t(a,"조건 보기","View conditions"),false,dark,()->BetaMedalUi.periods(a,dark)));
+            next.addView(BetaUi.note(a,BetaMedalUi.t(a,"기록 %d / %d일 · %d일 더 쌓이면 달성","Recorded %d / %d days · %d more days to go",recommended.optInt("current"),recommended.optInt("target"),HudUiModel.remaining(recommended.optInt("current"),recommended.optInt("target"))),dark));next.addView(BetaUi.row(a,BetaMedalUi.t(a,"달성 조건","Conditions"),"",dark,()->BetaMedalUi.periods(a,dark)));
         }
         else if(id.isEmpty())next.addView(BetaUi.body(a,BetaCopy.t(a,"complete_all"),dark));
         else{
             next.addView(BetaUi.title(a,BetaCatalog.name(id,BetaIdentity.name(a),BetaCopy.ko(a)),dark));
             int target=Math.max(1,goal.optInt("target")),value=Math.min(target,goal.optInt("current"));ProgressBar bar=Ui.progress(a,dark);bar.setMax(target);bar.setProgress(value);bar.setContentDescription(value+" / "+target);next.addView(bar);
-            next.addView(BetaUi.note(a,value+" / "+target,dark));next.addView(BetaUi.action(a,BetaMedalUi.t(a,"조건 보기","View conditions"),false,dark,()->BetaGrowthUi.detail(a,state,id,dark,account)));
+            next.addView(BetaUi.note(a,value+" / "+target,dark));next.addView(BetaUi.row(a,BetaMedalUi.t(a,"달성 조건","Conditions"),"",dark,()->BetaGrowthUi.detail(a,state,id,dark,account)));
         }
         JSONObject today=medals==null?null:medals.optJSONObject("today");
         LinearLayout summary=BetaUi.group(parent,BetaMedalUi.t(a,"나의 메달","My medals"),dark);summary.setTag("beta9911:medals");
         int week=medals==null?0:medals.optInt("week"),month=medals==null?0:medals.optInt("month");
         LinearLayout tiles=new LinearLayout(a);boolean stack=a.getResources().getConfiguration().fontScale>1.3f||a.getResources().getConfiguration().screenWidthDp<360;tiles.setOrientation(stack?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);summary.addView(tiles);
         tile(a,tiles,BetaMedalUi.t(a,"오늘","Today"),BetaMedalUi.status(a,today),today==null?0:today.optInt("grade"),today!=null&&today.optBoolean("active"),dark,stack);
-        tile(a,tiles,BetaMedalUi.t(a,"이번 주","This week"),BetaMedalUi.t(a,"%d일","%d days",week),BetaMedalModel.grade(week,false),BetaMedalModel.grade(week,false)>0,dark,stack);
-        tile(a,tiles,BetaMedalUi.t(a,"이번 달","This month"),BetaMedalUi.t(a,"%d일","%d days",month),BetaMedalModel.grade(month,true),BetaMedalModel.grade(month,true)>0,dark,stack);
-        summary.addView(BetaUi.action(a,BetaMedalUi.t(a,"메달 기록 보기","View medal records"),false,dark,()->BetaMedalUi.periods(a,dark)));
+        tile(a,tiles,BetaMedalUi.t(a,"이번 주","This week"),medals==null?BetaMedalUi.t(a,"확인 대기","Pending"):BetaMedalUi.t(a,"%d일","%d days",week),BetaMedalModel.grade(week,false),BetaMedalModel.grade(week,false)>0,dark,stack);
+        tile(a,tiles,BetaMedalUi.t(a,"이번 달","This month"),medals==null?BetaMedalUi.t(a,"확인 대기","Pending"):BetaMedalUi.t(a,"%d일","%d days",month),BetaMedalModel.grade(month,true),BetaMedalModel.grade(month,true)>0,dark,stack);
+        android.view.View records=BetaUi.row(a,BetaMedalUi.t(a,"메달 기록 보기","View medal records"),"",dark,()->a.startActivity(new Intent(a,RecordsActivity.class).putExtra("medal_current_month",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT|Intent.FLAG_ACTIVITY_SINGLE_TOP)));
+        records.setTag("beta9915:medal-records");summary.addView(records);
         if(TrialDemo.active(a))summary.addView(BetaUi.note(a,BetaCopy.t(a,"demo"),dark));
         if(!model.collectionEnabled||model.status==BetaGrowthModel.Status.ERROR)summary.addView(BetaUi.note(a,BetaCopy.t(a,!model.collectionEnabled?"paused":"error"),dark));
         LinearLayout collection=BetaUi.group(parent,BetaCopy.t(a,"collection"),dark);collection.setTag("beta9911:collections");

@@ -46,8 +46,10 @@ final class CoachUi {
         CoachCatalog.Tip t=selection.tip;if(t==null)return;
         LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(Ui.dp(a,20),Ui.dp(a,12),Ui.dp(a,20),Ui.dp(a,12));
         content.addView(BetaUi.body(a,selection.text,dark));Ui.addSpacer(content,12);
+        content.addView(BetaUi.title(a,BetaExperienceUi.t(a,"준비할 내용","What to provide"),dark));
         content.addView(LedgerUi.caption(a,t.inputs+"\n\n"+t.fallback,dark));Ui.addSpacer(content,16);
-        TextView prompt=LedgerUi.heading(a,t.prompt,dark);prompt.setTextIsSelectable(true);content.addView(prompt);Ui.addSpacer(content,16);content.addView(LedgerUi.caption(a,t.check,dark));
+        content.addView(BetaUi.title(a,BetaExperienceUi.t(a,"실전 프롬프트","Ready-to-use prompt"),dark));Ui.addSpacer(content,8);
+        TextView prompt=BetaUi.body(a,t.prompt,dark);prompt.setTextIsSelectable(true);prompt.setPadding(Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14));prompt.setBackground(LedgerUi.shape(a,Ui.controlSurface(a,dark),12));content.addView(prompt);Ui.addSpacer(content,16);content.addView(LedgerUi.caption(a,t.check,dark));
         ScrollView scroll=new ScrollView(a);scroll.addView(content);
         AlertDialog dialog=new AlertDialog.Builder(a).setTitle(t.title).setView(scroll).setPositiveButton(R.string.coach_copy,null).setNegativeButton(R.string.coach_close,null).create();
         dialog.setOnShowListener(ignored->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
@@ -57,10 +59,9 @@ final class CoachUi {
     }
     static boolean copyPrompt(ClipboardManager clipboard,String title,String visiblePrompt){try{if(clipboard==null)return false;clipboard.setPrimaryClip(ClipData.newPlainText(title,visiblePrompt));return true;}catch(RuntimeException error){return false;}}
     static void settings(AppCompatActivity a,LinearLayout parent,boolean dark){
-        parent.addView(LedgerUi.action(a,a.getString(R.string.live_ai_title),false,dark,()->{
+        android.view.View setting=BetaUi.row(a,a.getString(R.string.live_ai_title),BetaExperienceUi.t(a,CoachPolicy.tone(a).equals("off")?"꺼짐":"켜짐 · 앱이 자동 선택",CoachPolicy.tone(a).equals("off")?"Off":"On · chosen automatically"),dark,()->{
             String[] labels={BetaExperienceUi.t(a,"켜기 · 앱이 자동 선택","On · chosen automatically"),BetaExperienceUi.t(a,"끄기","Off")};
             new AlertDialog.Builder(a).setTitle(R.string.live_ai_title).setSingleChoiceItems(labels,CoachPolicy.tone(a).equals("off")?1:0,(d,i)->{d.dismiss();WORKER.execute(()->{FunStore.tone(a,i==1?"off":"spicy");a.runOnUiThread(a::recreate);});}).show();
-        }));
-        parent.addView(LedgerUi.caption(a,BetaExperienceUi.t(a,"앱에 포함된 문구가 자동으로 선택됩니다. 문구 편집·추가·수동 교체는 제공하지 않습니다. 기존 숨김 기록은 유지합니다.","The app selects its built-in copy automatically. No editing, additions or manual replacement. Existing hidden choices are retained."),dark));
+        });setting.setTag("beta9915:coach-setting");parent.addView(setting);
     }
 }

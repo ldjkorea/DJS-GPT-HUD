@@ -24,7 +24,7 @@ final class BetaQuotaUi {
         parent.addView(section,new LinearLayout.LayoutParams(-1,-2));
         fill(activity,section,snapshot,dark,clockUpdates,true);
         String expected=SubscriptionStore.accountKey(activity);
-        section.addView(BetaUi.action(activity,BetaMedalUi.t(activity,"내 상태 상세","My status details"),false,dark,()->BetaHomeDetailsUi.show(activity,snapshot,dark,expected)));
+        section.addView(BetaUi.row(activity,BetaMedalUi.t(activity,"한도·내 상태 상세","Limits and status details"),"",dark,()->BetaHomeDetailsUi.show(activity,snapshot,dark,expected)));
     }
 
     static void details(MainActivity activity,LinearLayout parent,UsageSnapshot snapshot,boolean dark){fill(activity,parent,snapshot,dark,new java.util.ArrayList<>(),false);}
@@ -65,12 +65,12 @@ final class BetaQuotaUi {
         }
         parent.addView(column, params);
         String label = BetaExperienceUi.t(activity,
-                fiveHour ? "5시간 남음" : "주간 남음",
+                fiveHour ? "5시간 한도 · 남음" : "주간 한도 · 남음",
                 fiveHour ? "5-hour remaining" : "Weekly remaining");
         column.addView(BetaUi.body(activity, label, dark));
         TextView value = BetaUi.text(activity, window == null ? "—"
                 : UsagePrecision.remaining(window, AppPreferences.usageDecimalPlaces(activity)),
-                30, Ui.accent(activity, dark), true);
+                30, Ui.mainText(dark), true);
         value.setTag("beta998:quota:" + key + ":value");
         value.setContentDescription(label + ": " + value.getText());
         column.addView(value);

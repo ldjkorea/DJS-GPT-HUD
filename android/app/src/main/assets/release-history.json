@@ -1,5 +1,29 @@
 [
   {
+    "version": "3.1.5",
+    "date": "2026-10-25",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.5",
+    "origin": "korean",
+    "ko": {
+      "title": "화면 정돈과 기록 표시 신뢰성 개선",
+      "changes": [
+        "홈의 티어·잔여 한도와 주간 사용량을 정돈하고 관측0/자료 없음을 구분합니다.",
+        "기록 읽기 실패·재시도, 날짜 터치 영역, 메달 기록 목적지와 도감 빈 상태를 바로잡습니다.",
+        "세 탭의 설정 바로가기, 한마디 켜기/끄기와 로컬 복구 결과를 찾기 쉽게 개선합니다.",
+        "기존 정식의 패키지·서명·계정·성장·설정·624문구/40팁을 유지합니다. 신규 베타 배포는 종료합니다."
+      ]
+    },
+    "en": {
+      "title": "Clearer screens and reliable record states",
+      "changes": [
+        "Refine the tier/quota and weekly usage display; distinguish observed zero from missing data.",
+        "Fix record errors/retry, date hit targets, medal-record navigation and collection empty states.",
+        "Add consistent root settings shortcuts and clearer coach and local recovery controls.",
+        "Preserve stable identity, signer, accounts, growth, settings and bundled coach content. Separate beta publishing is retired."
+      ]
+    }
+  },
+  {
     "version": "3.1.4",
     "date": "2026-10-24",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.4",

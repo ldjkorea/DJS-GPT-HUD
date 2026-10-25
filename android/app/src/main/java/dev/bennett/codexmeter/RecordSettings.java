@@ -50,7 +50,6 @@ final class RecordSettings {
         toggle(a,fun,dark,R.string.evo_effects,TierTheme.effects(a),on->a.getSharedPreferences("codex_tier_effects",0).edit().putBoolean("enabled",on).apply());
         action(a,fun,dark,R.string.matte_recaps,()->a.startActivity(new Intent(a,FunActivity.class)));
 
-        CoachUi.settings(a,display,dark);
         CollectionControls.add(a,parent,dark);
         LinearLayout notify=card(a,parent,dark,R.string.matte_notify);
         page(a,notify,dark,R.string.ui_refresh_usage_903040,"refresh_usage");
