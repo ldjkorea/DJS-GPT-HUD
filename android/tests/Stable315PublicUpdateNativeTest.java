@@ -31,6 +31,14 @@ public final class Stable315PublicUpdateNativeTest extends Instrumentation {
         for (int i=0;i<node.getChildCount();i++) { AccessibilityNodeInfo found=confirmation(node.getChild(i)); if (found!=null) return found; }
         return null;
     }
+    android.widget.Button downloadButton(android.view.View view,String label) {
+        if(view instanceof android.widget.Button && view.isShown() && view.isEnabled()
+                && label.contentEquals(((android.widget.Button)view).getText())) return (android.widget.Button)view;
+        if(view instanceof android.view.ViewGroup) for(int i=0;i<((android.view.ViewGroup)view).getChildCount();i++) {
+            android.widget.Button found=downloadButton(((android.view.ViewGroup)view).getChildAt(i),label);if(found!=null)return found;
+        }
+        return null;
+    }
     @Override public void onStart() {
         Context c=getTargetContext(); Bundle out=new Bundle();
         try {
@@ -58,11 +66,21 @@ public final class Stable315PublicUpdateNativeTest extends Instrumentation {
                 android.accessibilityservice.AccessibilityServiceInfo service=automation.getServiceInfo();
                 service.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
                 automation.setServiceInfo(service);
-                startActivitySync(new Intent(c,UpdateActivity.class).putExtra(UpdateActivity.EXTRA_VERSION,"3.1.5")
-                        .putExtra(UpdateActivity.EXTRA_START_INSTALL,true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                Activity update=startActivitySync(new Intent(c,UpdateActivity.class).putExtra(UpdateActivity.EXTRA_VERSION,"3.1.5")
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                waitForIdleSync();Thread.sleep(1000);
+                final Throwable[] actionFailure={null};
+                runOnMainSync(()->{try{
+                    int id=update.getResources().getIdentifier("ui_download_and_install_0388ee","string",c.getPackageName());
+                    android.widget.Button action=downloadButton(update.getWindow().getDecorView(),update.getString(id));
+                    check(action!=null && action.performClick(),"Actual Download and install button clicked");
+                }catch(Throwable error){actionFailure[0]=error;}});
+                if(actionFailure[0]!=null)throw new AssertionError(actionFailure[0]);
                 AccessibilityNodeInfo button=null;
                 for (int i=0;i<180 && button==null;i++) { Thread.sleep(1000); button=confirmation(automation.getRootInActiveWindow()); }
                 check(button!=null,"Actual Android Update confirmation visible");
+                android.graphics.Bitmap image=automation.takeScreenshot();
+                if(image!=null)try(FileOutputStream stream=new FileOutputStream(new File(receipt(c).getParentFile(),"android-update-confirmation.png"))){image.compress(android.graphics.Bitmap.CompressFormat.PNG,100,stream);}finally{image.recycle();}
                 JSONObject receipt=new JSONObject(new String(java.nio.file.Files.readAllBytes(receipt(c).toPath()),java.nio.charset.StandardCharsets.UTF_8));
                 receipt.put("system_button_package",String.valueOf(button.getPackageName())).put("system_button_text",String.valueOf(button.getText()))
                         .put("confirmation_observed_at",System.currentTimeMillis()).put("click_authorized",true);

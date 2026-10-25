@@ -1,7 +1,7 @@
 """Only the task-owned gpthud_stable315 emulator; never select a physical device."""
 from pathlib import Path
 from zipfile import ZipFile
-import argparse, os, subprocess, hashlib
+import argparse, os, subprocess, hashlib, json, time
 
 p=argparse.ArgumentParser()
 p.add_argument('--serial',required=True)
@@ -58,6 +58,22 @@ font=shell('settings','get','system','font_scale').strip().replace('.','-')
 print(result,flush=True)
 if a.class_name!='Stable315ContinuityNativeTest':run([adb,'-s',a.serial,'pull',f'/sdcard/Android/data/{target}/files/stable315',out/'screens'])
 if a.class_name=='Stable315PublicUpdateNativeTest' and a.phase=='verify':
-    print('Old-app instrumentation may terminate during replacement. This is NOT a pass: independently inspect installed APK/version/hash and run continuity verification.')
+    # An old process death alone is never a pass. Inspect durable Android/app evidence.
+    for attempt in range(30):
+        installed=shell('dumpsys','package',target)
+        if 'versionName=3.1.5' in installed and 'versionCode=92 ' in installed:break
+        time.sleep(1)
+    assert 'versionName=3.1.5' in installed and 'versionCode=92 ' in installed,'Actual package replacement missing'
+    assert 'installerPackageName='+target in installed,'App must be the install source'
+    receipt=json.loads((out/'screens/stable315/public-update.json').read_text(encoding='utf-8'))
+    assert receipt['prepared'] and receipt['click_authorized'] and receipt['to']=='3.1.5'
+    assert receipt['system_button_package'] in {'com.google.android.packageinstaller','com.android.packageinstaller'}
+    assert receipt['system_button_text'].lower() in {'update','업데이트'}
+    path=shell('pm','path',target).splitlines()[0].removeprefix('package:').strip()
+    installed_apk=out/'public-system-installed.apk'
+    run([adb,'-s',a.serial,'pull',path,installed_apk])
+    assert installed_apk.stat().st_size==receipt['bytes'] and hashlib.sha256(installed_apk.read_bytes()).hexdigest()==receipt['sha256']
+    (out/'public-system-installed.json').write_text(json.dumps({'serial':a.serial,'avd':shell('getprop','ro.boot.qemu.avd_name').strip(),'version':'3.1.5','code':92,'bytes':receipt['bytes'],'sha256':receipt['sha256'],'installer':target,'continuity':'separate test required'},indent=2),encoding='utf-8')
+    print('Android confirmation and actual installed package identity checks passed; separately run continuity and restart verification.')
 else:
     assert 'checks passed' in result and 'INSTRUMENTATION_CODE: -1' in result
