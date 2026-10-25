@@ -47,6 +47,11 @@ with ZipFile(out/'base.apk','a') as z:z.write(dex/'classes.dex','classes.dex')
 signing=Path(os.environ['GPT_HUD_SIGNING_DIR'])
 run([bt/'apksigner.bat','sign','--ks',signing/'codex-meter-local.p12','--ks-key-alias','codexmeter','--ks-pass','file:'+str(signing/'password'),'--out',out/'tests.apk',out/'base.apk'])
 run([adb,'-s',a.serial,'install','-r',out/'tests.apk'])
+if a.class_name=='Stable315UiNativeTest':
+    run([adb,'-s',a.serial,'shell','cmd','locale','set-app-locales',target,'--user','0','--locales',a.locale])
+    run([adb,'-s',a.serial,'shell','am','force-stop',target])
+    for key in ['window_animation_scale','transition_animation_scale','animator_duration_scale']:
+        run([adb,'-s',a.serial,'shell','settings','put','global',key,'0'])
 result=shell('am','instrument','-r','-w','-e','phase',a.phase,'-e','locale',a.locale,'-e','theme',a.theme,'-e','long_name',str(a.long_name).lower(),package+'/dev.bennett.codexmeter.'+a.class_name)
 font=shell('settings','get','system','font_scale').strip().replace('.','-')
 (out/f'{a.class_name}-{a.phase}-{a.locale}-{a.theme}-font-{font}.txt').write_text(result,encoding='utf-8')

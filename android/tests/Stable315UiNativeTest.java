@@ -26,15 +26,23 @@ public final class Stable315UiNativeTest extends Instrumentation {
         if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++)bounds(((ViewGroup)view).getChildAt(i));
     }
     int accountBodies(View view){int found=0;if(view instanceof ScrollView&&((ScrollView)view).getChildCount()>0){bounds(((ScrollView)view).getChildAt(0));return 1;}if(view instanceof ViewGroup)for(int i=0;i<((ViewGroup)view).getChildCount();i++)found+=accountBodies(((ViewGroup)view).getChildAt(i));return found;}
-    void shot(Context c,String name)throws Exception{Thread.sleep(200);Bitmap bitmap=getUiAutomation().takeScreenshot();if(bitmap==null)throw new IllegalStateException("No screenshot");java.io.File folder=new java.io.File(c.getExternalFilesDir(null),"stable315");folder.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(folder,name+".png"))){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}}
+    void rootControls(Activity a){
+        check(a.getResources().getConfiguration().getLocales().get(0).getLanguage().equals(locale),"Actual Activity language matches requested "+locale);
+        dev.oneuiproject.oneui.layout.ToolbarLayout bar=a.findViewById(R.id.toolbar_layout);View gear=bar.getToolbar().findViewWithTag("beta9915:settings");
+        check(gear!=null&&gear.isShown(),"Root settings shown");float density=a.getResources().getDisplayMetrics().density;
+        check(gear.getWidth()+1>=48*density&&gear.getHeight()+1>=48*density,"Root settings has measured 48dp target");
+        android.graphics.Rect visible=new android.graphics.Rect();a.getWindow().getDecorView().getWindowVisibleDisplayFrame(visible);int[] pos=new int[2];gear.getLocationOnScreen(pos);
+        check(visible.contains(pos[0]+gear.getWidth()/2,pos[1]+gear.getHeight()/2),"Root settings center within visible screen");
+    }
+    void shot(Context c,String name)throws Exception{waitForIdleSync();Thread.sleep(500);Bitmap bitmap=getUiAutomation().takeScreenshot();if(bitmap==null)throw new IllegalStateException("No screenshot");java.io.File folder=new java.io.File(c.getExternalFilesDir(null),"stable315");folder.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(folder,name+".png"))){bitmap.compress(Bitmap.CompressFormat.PNG,100,out);}finally{bitmap.recycle();}}
     @Override public void onCreate(Bundle args){super.onCreate(args);locale=args.getString("locale","ko");theme=args.getString("theme","dark");longName="true".equals(args.getString("long_name","false"));start();}
     @Override public void onStart(){
         Bundle result=new Bundle();int code=0;Activity active=null;Context c=getTargetContext();
         try{
             check(Build.FINGERPRINT.contains("generic")||Build.MODEL.contains("sdk"),"Emulator only");
-            check(c.getPackageName().equals("dev.bennett.codexmeter"),"Beta sandbox only");
+            check(c.getPackageName().equals("dev.bennett.codexmeter"),"Stable sandbox only");
             check(c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName.equals("3.1.5"),"Candidate version installed");
-            check("stable315-qa".equals(SecureTokenStore.load(c).accountId),"Existing synthetic stable fixture required");UpdatePreferences.setAutomaticChecks(c,false);BetaIdentity.save(c,longName?"베타 화면 검수 · 긴 이름도 확인합니다":"베타 체험자");
+            check("stable315-qa".equals(SecureTokenStore.load(c).accountId),"Existing synthetic stable fixture required");UpdatePreferences.setAutomaticChecks(c,false);BetaIdentity.save(c,longName?"정식 화면 검수 · 긴 이름도 확인합니다":"정식 검수자");
             AppPreferences.setAppTheme(c,theme);c.getSystemService(android.app.LocaleManager.class).setApplicationLocales(LocaleList.forLanguageTags(locale));Thread.sleep(350);
             String account=SubscriptionStore.accountKey(c);long now=System.currentTimeMillis();
             JSONObject medal=BetaMedalModel.empty(account,now-20L*86400000,false);
@@ -46,7 +54,7 @@ public final class Stable315UiNativeTest extends Instrumentation {
             JSONObject growthBefore=BetaGrowthStore.load(c,account);long xp=growthBefore.getLong("total");String acquired=growthBefore.getJSONObject("honors").toString(),titles=growthBefore.getJSONObject("titles").toString();
 
             active=startActivitySync(new Intent(c,RecordsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));RecordsActivity records=(RecordsActivity)active;ready(records,"beta9911:records");workers();Thread.sleep(250);
-            main(()->{dev.oneuiproject.oneui.layout.ToolbarLayout bar=records.findViewById(R.id.toolbar_layout);check(bar.getToolbar().findViewWithTag("beta9915:settings")!=null&&bar.getToolbar().findViewWithTag("beta9915:settings").isShown(),"Records settings shortcut");bounds(records.body);});shot(c,"records-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);
+            main(()->{rootControls(records);bounds(records.body);});shot(c,"records-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);
             String stored=BetaMedalStore.export(c,account).toString();
             try(BetaMedalStore db=new BetaMedalStore(c)){db.getWritableDatabase().execSQL("UPDATE medals SET document=? WHERE account=?",new Object[]{"{",account});}
             main(()->records.load());workers();Thread.sleep(150);
@@ -62,7 +70,7 @@ public final class Stable315UiNativeTest extends Instrumentation {
             active=startActivitySync(new Intent(c,BetaCatalogActivity.class).putExtra("titles",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));BetaCatalogActivity catalog=(BetaCatalogActivity)active;workers();Thread.sleep(150);
             main(()->{try{JSONObject viewOnly=new JSONObject(growthBefore.toString());viewOnly.put("titles",new JSONObject());catalog.state=viewOnly;catalog.filter=1;catalog.render();check(catalog.body.findViewWithTag("beta9911:collectible:medal.title1")!=null,"Medal-only title remains visible");check(!text(catalog.body).contains(BetaCopy.t(catalog,"no_items")),"Visible medals exclude empty catalog message");check(!BetaCatalog.name("rpg4.title_gold_months_3","x",true).equals(BetaMedalUi.name(catalog,"medal.title3")),"Different evidence has a distinct title");bounds(catalog.body);}catch(Exception e){throw new RuntimeException(e);}});main(catalog::finish);active=null;
 
-            active=startActivitySync(new Intent(c,GrowthActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));GrowthActivity growth=(GrowthActivity)active;ready(growth,"beta9911:next-goal");main(()->{dev.oneuiproject.oneui.layout.ToolbarLayout bar=growth.findViewById(R.id.toolbar_layout);check(bar.getToolbar().findViewWithTag("beta9915:settings")!=null&&bar.getToolbar().findViewWithTag("beta9915:settings").isShown(),"Growth settings shortcut");bounds(growth.findViewById(R.id.dashboard_content));});shot(c,"growth-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);
+            active=startActivitySync(new Intent(c,GrowthActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));GrowthActivity growth=(GrowthActivity)active;ready(growth,"beta9911:next-goal");main(()->{rootControls(growth);bounds(growth.findViewById(R.id.dashboard_content));});shot(c,"growth-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);
             ActivityMonitor monitor=addMonitor(RecordsActivity.class.getName(),null,false);main(()->check(growth.findViewById(R.id.dashboard_content).findViewWithTag("beta9915:medal-records").performClick(),"Actual record action clicked"));Activity destination=waitForMonitorWithTimeout(monitor,10000);removeMonitor(monitor);check(destination instanceof RecordsActivity,"Medal records opens RecordsActivity");main(destination::finish);main(growth::finish);active=null;
 
             active=startActivitySync(new Intent(c,MeterSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity settings=active;ready(settings,"beta9915:coach-setting");main(()->{View setting=settings.findViewById(android.R.id.content).findViewWithTag("beta9915:coach-setting");check(setting.isShown(),"Coach ON/OFF visible without advanced expansion");bounds(settings.findViewById(R.id.dashboard_content));});shot(c,"settings-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);main(settings::finish);active=null;
@@ -70,6 +78,7 @@ public final class Stable315UiNativeTest extends Instrumentation {
             active=startActivitySync(new Intent(c,BetaHubActivity.class).putExtra("page","health").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));BetaHubActivity health=(BetaHubActivity)active;waitForIdleSync();main(health::recheckRecords);workers();Thread.sleep(150);main(()->{check(!health.healthBusy&&!health.healthFailed,"Recovery recheck finishes in place");check(health.body.findViewWithTag("beta9915:recheck-result")!=null,"Recovery result visible on same screen");});main(health::finish);active=null;
 
             active=startActivitySync(new Intent(c,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));MainActivity home=(MainActivity)active;ready(home,"beta999:weekly");Thread.sleep(500);waitForIdleSync();
+            main(()->rootControls(home));
             main(()->{View root=home.findViewById(R.id.dashboard_content);check(root.findViewWithTag("beta999:summary")!=null,"Tier and quota summary retained");check(root.findViewWithTag("beta998:quota:five-hour:value")!=null&&root.findViewWithTag("beta998:quota:weekly:value")!=null,"Both primary remaining limits visible");check(root.findViewWithTag("beta999:weekly-period").getVisibility()==View.VISIBLE,"Quota-cycle dates visible");bounds(root);});shot(c,"home-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale);
             BetaWeeklyUi.WORKER.submit(()->{}).get(30,TimeUnit.SECONDS);waitForIdleSync();
             main(()->{java.util.List<BetaWeeklyUsage.Day> days=new java.util.ArrayList<>();for(int i=0;i<3;i++)days.add(new BetaWeeklyUsage.Day(BetaV4.day(now).minusDays(2-i),false));days.get(0).measured=true;days.get(0).points=0;days.get(2).measured=true;days.get(2).points=4;LinearLayout graph=home.findViewById(R.id.dashboard_content).findViewWithTag("beta999:weekly-graph");BetaWeeklyUi.render(home,graph,new BetaWeeklyUsage.Model(now-86400000,now+86400000,now,days),Ui.isDark(home));check(text(graph).contains("0")&&text(graph).contains("—"),"Zero and missing observations have different visible marks");});
