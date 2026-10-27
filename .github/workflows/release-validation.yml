@@ -33,7 +33,13 @@ jobs:
           java-version: '21'
       - name: Offline guards after obtaining the existing JSON test dependency
         run: |
-          if test -f android/tests/verify-stable317-source.py; then
+          if test -f android/tests/verify-stable318-source.py; then
+            python3 android/tests/verify-stable318-source.py
+            python3 android/tests/verify-stable318.py
+            python3 android/tests/verify-stable314-release.py
+            python3 android/tests/verify-publication.py
+            python3 android/tests/verify-public-source.py
+          elif test -f android/tests/verify-stable317-source.py; then
             python3 android/tests/verify-stable317-source.py
             python3 android/tests/verify-stable317.py
             python3 android/tests/verify-stable314-release.py

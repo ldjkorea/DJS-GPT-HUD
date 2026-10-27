@@ -1,5 +1,25 @@
 [
   {
+    "version": "3.1.8",
+    "date": "2026-10-27",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.8",
+    "origin": "korean",
+    "ko": {
+      "title": "AI의 한마디를 한도 바로 아래로",
+      "changes": [
+        "홈을 티어·프로필·남은 한도 → AI의 한마디 → 이번 주간 사용량 순서로 표시합니다.",
+        "정확한 한도 초기화 날짜·시각과 남은 시간, 기존 로그인·기록·성장·설정을 유지합니다."
+      ]
+    },
+    "en": {
+      "title": "The coach is back directly below remaining limits",
+      "changes": [
+        "Order home as profile and remaining limits, the coach, then weekly usage.",
+        "Keep exact reset dates and times, countdowns, existing login, records, growth and settings."
+      ]
+    }
+  },
+  {
     "version": "3.1.7",
     "date": "2026-10-27",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.7",
