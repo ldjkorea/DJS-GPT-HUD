@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.1.7",
+    "date": "2026-10-27",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.7",
+    "origin": "korean",
+    "ko": {
+      "title": "홈에서 초기화 날짜와 시각을 다시 확인하세요",
+      "changes": [
+        "홈의5시간·주간 한도 아래에 정확한 초기화 날짜·시각과 남은 시간을 함께 표시합니다.",
+        "기기 시간대와12/24시간 설정을 따르며 작은 화면과 큰 글씨에서도 전문을 표시합니다.",
+        "기존 로그인·사용량·레벨·XP·업적·칭호·장착·메달·설정과 서명을 유지합니다."
+      ]
+    },
+    "en": {
+      "title": "Exact reset dates and times are back on home",
+      "changes": [
+        "Show the exact reset date/time and countdown beneath both the5-hour and weekly limits.",
+        "Respect device time zone and12/24-hour format, including narrow screens and large text.",
+        "Preserve existing login, usage, growth, collections, equipment, medals, settings and signing identity."
+      ]
+    }
+  },
+  {
     "version": "3.1.6",
     "date": "2026-10-27",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.6",

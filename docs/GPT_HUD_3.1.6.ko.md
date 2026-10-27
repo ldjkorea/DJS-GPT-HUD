@@ -1,5 +1,14 @@
 # GPT HUD 정식3.1.6 / code93 — 2026-10-27
 
+## 배포 후 홈 초기화 시각 표시 복원 — 로컬 수정 / 미배포
+
+- 사용자 피드백: 업데이트 후 홈에 남은 시간만 보이고 정확한 초기화 날짜·시각이 사라졌다. 개편 때 `BetaQuotaUi`의 compact 분기가 절대 시각을 상세로 옮긴 것이 원인이다.
+- 홈의5시간·주간 한도 모두 기존 `home_quota_reset_schedule` 두 줄 서식을 사용하도록 복원했다. 기기 시간대·12/24시간 설정과 기존 카운트다운을 유지한다. 자료 없음/시각 미제공/만료 상태를 임의의 미래 시각으로 바꾸지 않는다.
+- 생산 수정은 `BetaQuotaUi.java`의 표시 분기 한 곳이다. 기준 공개 HEAD `59c6f2e0cf266165c3d84b48b11b2cabaff0ee20`. 버전·공개APK·태그·릴리스는 변경하지 않았다.
+- `verify-stable316-source.py`, `verify-stable316.py`, Release 빌드/lint와 `git diff --check` 통과. lint 추가 오류0/기존 경고281, 기존 baseline 유지.
+- 전용 합성 `gpthud_stable316_preview`에서 `HomeQuotaScheduleNativeTest`를 기본360dp/글씨1배와320dp/글씨2배로 실행해 각각57검사 통과. 실제 홈 두 초기화 시각·줄바꿈·텍스트 높이, 미래/만료/미제공/빈 자료/상대 reset 시각과 암호화 합성 로그인 불변을 확인했다. 임시 합성 사용량 캐시는 검사 후 원복했다. 실제폰·실계정·새 공개 자동 업데이트는 이번 수정에서 검증하지 않았다.
+- 증거: `android/build/stable316/home-reset-*.log`, `native/screens/stable316/home-reset-restored-*.png`. 공개316 배포 증거와 로컬 수정 증거를 구분한다.
+
 사용자가 검토한 정식 개편을3.1.6으로 올려 기존 자동 업데이트 경로에 공개하도록 직접 승인했다. 기준 HEAD `9a7da3cdd39692cd39fc153385a5aa85a0a78b25`, 작업 브랜치 `release/3.1.6`.
 
 ## 구현 범위

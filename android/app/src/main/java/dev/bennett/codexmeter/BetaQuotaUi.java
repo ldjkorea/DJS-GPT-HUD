@@ -111,9 +111,7 @@ final class BetaQuotaUi {
             status.setVisibility(state==UsageEvidence.State.CONFIRMED?android.view.View.GONE:android.view.View.VISIBLE);
             long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
             if (resetAt > now) {
-                reset.setText(compact ? BetaExperienceUi.t(activity,"초기화까지 %s","Resets in %s",
-                        UsageFormat.compactDuration(activity, resetAt - now))
-                        : activity.getString(R.string.home_quota_reset_schedule,
+                reset.setText(activity.getString(R.string.home_quota_reset_schedule,
                         UsageFormat.absolute(activity, resetAt, now),
                         UsageFormat.compactDuration(activity, resetAt - now)));
                 return;
