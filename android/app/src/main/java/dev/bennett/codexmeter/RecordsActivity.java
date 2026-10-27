@@ -122,7 +122,7 @@ public final class RecordsActivity extends AppCompatActivity {
     }
     void move(boolean months, int direction) {
         if (months) { month = month.plusMonths(direction); anchor = direction > 0 ? month.atDay(1) : month.atEndOfMonth(); }
-        else { anchor = HudUiModel.week(month, anchor).get(0).plusWeeks(direction); month = YearMonth.from(anchor); }
+        else { anchor = GrowthCalendarNavigation.adjacentAnchor(month, anchor, direction); month = YearMonth.from(anchor); }
         render();
     }
     void week(LinearLayout parent, JSONObject days) {

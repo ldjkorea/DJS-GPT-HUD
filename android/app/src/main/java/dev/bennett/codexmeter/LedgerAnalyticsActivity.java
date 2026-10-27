@@ -37,6 +37,8 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
     private static final ExecutorService worker=Executors.newSingleThreadExecutor();
     private LinearLayout content,body;
     private boolean dark,busy;
+    private boolean exportPending;
+    private String exportAccount;
     private UsageLedgerDatabase.Data data;
     private String policy="";
     private int period=-1,screen=0;
@@ -58,11 +60,12 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
         if(screen==3){startActivity(new Intent(this,FunActivity.class));finish();return;}
         if(!recordsRoot()&&!settingsRoot()&&screen==2){MatteNav.open(this,2);finish();return;}
         screen=Math.max(0,Math.min(1,screen));
+        if(state!=null){exportPending=state.getBoolean("export_pending");exportAccount=state.getString("export_account");busy=exportPending;}
         if(state!=null){savedScroll=state.getInt("scroll");restoreScroll=true;java.util.ArrayList<String> groups=state.getStringArrayList("groups");if(groups!=null)expandedGroups.addAll(groups);}
         if(state==null&&getIntent().getBooleanExtra("manual_record",false))manual();else reload();
     }
-    @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putString("selected_date",selectedDate.toString());state.putString("policy",policy);state.putInt("period",period);state.putInt("screen",screen);state.putStringArrayList("groups",new java.util.ArrayList<>(expandedGroups));state.putString("month",month.toString());View scroll=findViewById(R.id.dashboard_scroll);if(scroll!=null)state.putInt("scroll",scroll.getScrollY());}
-    @Override protected void onResume(){super.onResume();if(Ui.isDark(this)!=dark){recreate();return;}if(data!=null&&!busy){String key=pageKey();if(!key.equals(loadedKey))reload();else if(recordsRoot()||settingsRoot())controls();}}
+    @Override protected void onSaveInstanceState(Bundle state){super.onSaveInstanceState(state);state.putBoolean("export_pending",exportPending);state.putString("export_account",exportAccount);state.putString("selected_date",selectedDate.toString());state.putString("policy",policy);state.putInt("period",period);state.putInt("screen",screen);state.putStringArrayList("groups",new java.util.ArrayList<>(expandedGroups));state.putString("month",month.toString());View scroll=findViewById(R.id.dashboard_scroll);if(scroll!=null)state.putInt("scroll",scroll.getScrollY());}
+    @Override protected void onResume(){super.onResume();if(Ui.isDark(this)!=dark){recreate();return;}if((data!=null||settingsRoot())&&!busy){String key=pageKey();if(!key.equals(loadedKey))reload();else if(recordsRoot()||settingsRoot())controls();}}
     @Override protected void onPause(){View scroll=findViewById(R.id.dashboard_scroll);if(scroll!=null){savedScroll=scroll.getScrollY();restoreScroll=true;}NotesUi.flush(this);super.onPause();}
     @Override protected void onDestroy(){NotesUi.close(this);super.onDestroy();}
     @Override public boolean onSupportNavigateUp(){finish();return true;}
@@ -71,6 +74,7 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
     protected boolean settingsRoot(){return false;}
     private void reload(){
         final long request=++loadGeneration;final String requestedKey=pageKey();
+        if(settingsRoot()){loadedKey=requestedKey;controls();return;}
         if(data!=null&&!restoreScroll){savedScroll=((androidx.core.widget.NestedScrollView)findViewById(R.id.dashboard_scroll)).getScrollY();restoreScroll=true;}
         content.removeAllViews();if(settingsRoot())RecordSettings.hub(this,content,dark,this::picker,this::confirmClear,()->Toast.makeText(this,R.string.next_loading,Toast.LENGTH_SHORT).show());else content.addView(Ui.text(this,getString(R.string.next_loading),14,Ui.secondaryText(dark)));
         worker.execute(()->{
@@ -119,16 +123,17 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
                 .setPositiveButton(R.string.ui_done_e9b450,null).show();
     }
     private void confirmClear(){
+        final String expected=AccountSession.historyAccount(this);
         new AlertDialog.Builder(this).setTitle(R.string.ui_clear_usage_history_03c461)
                 .setMessage(R.string.ui_this_removes_every_locally_stored_usage_sample_your_lat_e3f515)
                 .setNegativeButton(R.string.ui_cancel_77dfd2,null).setPositiveButton(R.string.ui_clear_719ea3,(dialog,which)->{
-                    worker.execute(()->{AccountSession.clearHistory(getApplicationContext());LiveUsageStore.invalidate();WidgetRenderer.updateAll(getApplicationContext());runOnUiThread(()->{if(!isDestroyed())reload();});});
+                    worker.execute(()->{boolean cleared=AccountSession.clearHistory(getApplicationContext(),expected);if(cleared){LiveUsageStore.invalidate();WidgetRenderer.updateAll(getApplicationContext());}runOnUiThread(()->{if(!isDestroyed()){if(!cleared)accountChanged();reload();}});});
                 }).show();
     }
     private void controls(){
         invalidateOptionsMenu();content.removeAllViews();
         if(settingsRoot()) {
-            RecordSettings.hub(this,content,dark,this::picker,this::confirmClear,this::advancedData);
+            RecordSettings.hub(this,content,dark,this::picker,this::confirmClear,this::loadAdvancedData);
             restorePosition();return;
         }
         Map<String,String> options=new LinkedHashMap<>();
@@ -277,6 +282,20 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
         Button toggle=LedgerUi.action(this,title+" ▾",false,dark,()->detail.setVisibility(detail.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE));
         body.addView(toggle);body.addView(detail);Ui.addSpacer(body,10);
     }
+    private void accountChanged(){
+        Toast.makeText(this,BetaExperienceUi.t(this,"계정이 바뀌어 작업을 취소했어요. 다시 시작해 주세요.","Account changed. Please start this action again."),Toast.LENGTH_LONG).show();
+    }
+    private void loadAdvancedData(){
+        if(busy)return;busy=true;String expected=AccountSession.historyAccount(this);
+        Toast.makeText(this,R.string.next_loading,Toast.LENGTH_SHORT).show();
+        worker.execute(()->{UsageLedgerDatabase.Data loaded=null;
+            try{synchronized(UsageApi.NETWORK_LOCK){if(AccountSession.historyAccountCurrent(this,expected))loaded=UsageLedgerDatabase.load(getApplicationContext());}}catch(Exception ignored){}
+            UsageLedgerDatabase.Data result=loaded;runOnUiThread(()->{busy=false;if(isDestroyed()||isFinishing())return;
+                if(!AccountSession.historyAccountCurrent(this,expected)){accountChanged();return;}
+                if(result==null){Toast.makeText(this,R.string.next_failed,Toast.LENGTH_LONG).show();return;}data=result;advancedData();
+            });
+        });
+    }
     private void advancedData(){
         LinearLayout detail=new LinearLayout(this);detail.setOrientation(LinearLayout.VERTICAL);
         detail.setPadding(Ui.dp(this,16),Ui.dp(this,12),Ui.dp(this,16),Ui.dp(this,12));
@@ -418,23 +437,33 @@ public class LedgerAnalyticsActivity extends AppCompatActivity {
         });
     }
     private void picker(boolean json){
+        if(busy||exportPending)return;
+        exportAccount=AccountSession.historyAccount(this);
+        if(exportAccount==null){accountChanged();return;}
+        exportPending=true;busy=true;
         try{Intent create=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
                 .setType(json?"application/json":"text/csv").putExtra(Intent.EXTRA_TITLE,"CodexMeter-usage-"+LedgerAggregation.day(System.currentTimeMillis())+(json?".json":".csv"));
             startActivityForResult(create,json?EXPORT_JSON:EXPORT_CSV);
-        }catch(Exception ignored){Toast.makeText(this,R.string.next_export_failed,Toast.LENGTH_LONG).show();}
+        }catch(Exception ignored){exportPending=false;busy=false;exportAccount=null;Toast.makeText(this,R.string.next_export_failed,Toast.LENGTH_LONG).show();}
     }
     @Override protected void onActivityResult(int request,int result,Intent intent){
         super.onActivityResult(request,result,intent);
-        if(result!=RESULT_OK||intent==null||intent.getData()==null||request!=EXPORT_JSON&&request!=EXPORT_CSV)return;
+        if(request!=EXPORT_JSON&&request!=EXPORT_CSV)return;
+        String expected=exportAccount;boolean accepted=exportPending;exportPending=false;exportAccount=null;
+        if(!accepted||result!=RESULT_OK||intent==null||intent.getData()==null){busy=false;return;}
         android.net.Uri destination=intent.getData();
-        worker.execute(()->{int message=R.string.next_export_failed;
-            try{UsageLedgerDatabase.Data snapshot=UsageLedgerDatabase.load(getApplicationContext());List<JSONObject> events=new ArrayList<>();
-                for(UsageLedgerDatabase.Event event:snapshot.events)events.add(new JSONObject().put("type",event.type).put("at_utc",LedgerExport.utc(event.at)).put("meter",event.meter).put("origin",event.origin));
-                String export=request==EXPORT_JSON?LedgerExport.json(snapshot.records,snapshot.days,snapshot.uncertain,events):LedgerExport.csv(snapshot.records,snapshot.days,snapshot.uncertain,events);
-                try(OutputStream output=getContentResolver().openOutputStream(destination,"wt")){if(output==null)throw new IllegalStateException("Export destination unavailable");output.write(export.getBytes(StandardCharsets.UTF_8));}
-                message=R.string.next_export_done;
-            }catch(Exception ignored){}
-            final int feedback=message;runOnUiThread(()->{if(!isDestroyed())Toast.makeText(this,feedback,Toast.LENGTH_LONG).show();});
+        worker.execute(()->{int message=R.string.next_export_failed;boolean changed=false;
+            try{synchronized(UsageApi.NETWORK_LOCK){
+                if(!AccountSession.historyAccountCurrent(getApplicationContext(),expected)){changed=true;}
+                else {
+                    UsageLedgerDatabase.Data snapshot=UsageLedgerDatabase.load(getApplicationContext());List<JSONObject> events=new ArrayList<>();
+                    for(UsageLedgerDatabase.Event event:snapshot.events)events.add(new JSONObject().put("type",event.type).put("at_utc",LedgerExport.utc(event.at)).put("meter",event.meter).put("origin",event.origin));
+                    String export=request==EXPORT_JSON?LedgerExport.json(snapshot.records,snapshot.days,snapshot.uncertain,events):LedgerExport.csv(snapshot.records,snapshot.days,snapshot.uncertain,events);
+                    try(OutputStream output=getContentResolver().openOutputStream(destination,"wt")){if(output==null)throw new IllegalStateException("Export destination unavailable");output.write(export.getBytes(StandardCharsets.UTF_8));}
+                    message=R.string.next_export_done;
+                }
+            }}catch(Exception ignored){}
+            final int feedback=message;final boolean changedAccount=changed;runOnUiThread(()->{busy=false;if(!isDestroyed()&&!isFinishing()){if(changedAccount)accountChanged();else Toast.makeText(this,feedback,Toast.LENGTH_LONG).show();}});
         });
     }
     private String label(String key){String[] parts=key.split("\\|");String meter=parts[0];String name;

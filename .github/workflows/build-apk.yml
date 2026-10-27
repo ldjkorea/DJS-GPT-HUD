@@ -44,7 +44,13 @@ jobs:
       - name: Current migration contracts and Korean regression tests
         shell: bash
         run: |
-          if test -f android/tests/verify-stable315-source.py; then
+          if test -f android/tests/verify-stable316-source.py; then
+            python3 android/tests/verify-stable316-source.py
+            python3 android/tests/verify-stable316.py
+            python3 android/tests/verify-stable314-release.py
+            python3 android/tests/verify-publication.py
+            python3 android/tests/verify-public-source.py
+          elif test -f android/tests/verify-stable315-source.py; then
             python3 android/tests/verify-stable315-source.py
             python3 android/tests/verify-stable315.py
             python3 android/tests/verify-stable314-release.py
@@ -92,7 +98,9 @@ jobs:
       - name: Verify RPG token metadata and widget regression
         shell: pwsh
         run: |
-          if (Test-Path android/tests/verify-stable315-source.py) {
+          if (Test-Path android/tests/verify-stable316-source.py) {
+            python android/tests/verify-stable316-source.py
+          } elseif (Test-Path android/tests/verify-stable315-source.py) {
             python android/tests/verify-stable315-source.py
           } elseif (Test-Path android/tests/verify-stable314-source.py) {
             python android/tests/verify-stable314-source.py

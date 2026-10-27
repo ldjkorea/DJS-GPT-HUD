@@ -9,6 +9,7 @@ final class BetaCompactGrowthUi {
         String account=SubscriptionStore.accountKey(a);JSONObject goal=model.summary.optJSONObject("next_goal");
         JSONObject medals=BetaMedalStore.peek(a),periodGoal=null;try{periodGoal=BetaMedalModel.nextPeriod(medals,System.currentTimeMillis());}catch(Exception ignored){}final JSONObject recommended=periodGoal;
         LinearLayout next=BetaUi.group(parent,BetaMedalUi.t(a,"다음 추천 목표","Recommended next goal"),dark);next.setTag("beta9911:next-goal");
+        observationStatus(a,next,model,dark);
         String id=goal==null?"":goal.optString("id");
         if(recommended!=null){
             String label=BetaMedalUi.t(a,recommended.optBoolean("month")?"이번 달 %s":"이번 주 %s",recommended.optBoolean("month")?"This month · %s":"This week · %s",BetaMedalUi.grade(a,recommended.optInt("grade")));
@@ -31,12 +32,22 @@ final class BetaCompactGrowthUi {
         android.view.View records=BetaUi.row(a,BetaMedalUi.t(a,"메달 기록 보기","View medal records"),"",dark,()->a.startActivity(new Intent(a,RecordsActivity.class).putExtra("medal_current_month",true).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT|Intent.FLAG_ACTIVITY_SINGLE_TOP)));
         records.setTag("beta9915:medal-records");summary.addView(records);
         if(TrialDemo.active(a))summary.addView(BetaUi.note(a,BetaCopy.t(a,"demo"),dark));
-        if(!model.collectionEnabled||model.status==BetaGrowthModel.Status.ERROR)summary.addView(BetaUi.note(a,BetaCopy.t(a,!model.collectionEnabled?"paused":"error"),dark));
+        if(BetaMedalStore.failed(a))summary.addView(BetaUi.note(a,BetaMedalUi.t(a,"메달 기록 확인 필요 · 마지막 기록을 유지합니다","Medal records need another check · saved records retained"),dark));
         LinearLayout collection=BetaUi.group(parent,BetaCopy.t(a,"collection"),dark);collection.setTag("beta9911:collections");
         collection.addView(BetaUi.row(a,BetaCopy.t(a,"honors"),"",dark,()->a.startActivity(new Intent(a,BetaCatalogActivity.class))));
         collection.addView(BetaUi.row(a,BetaCopy.t(a,"titles"),"",dark,()->a.startActivity(new Intent(a,BetaCatalogActivity.class).putExtra("titles",true))));
         collection.addView(BetaUi.row(a,BetaMedalUi.t(a,"성장 상세","Growth details"),"",dark,()->a.startActivity(new Intent(a,GrowthActivity.class).putExtra("beta_details",true))));
         return true;
+    }
+    static void observationStatus(GrowthActivity a,LinearLayout parent,BetaGrowthModel model,boolean dark){
+        boolean paused=!model.collectionEnabled;
+        boolean needsCheck=model.status==BetaGrowthModel.Status.ERROR||model.status==BetaGrowthModel.Status.STALE||model.status==BetaGrowthModel.Status.BASELINE;
+        String label=paused?BetaCopy.t(a,"paused"):BetaCopy.t(a,model.key());
+        if(model.lastObserved>0&&model.status!=BetaGrowthModel.Status.DEMO)label+=" · "+BetaGrowthUi.time(a,model.lastObserved);
+        TextView status=BetaUi.note(a,label,dark);status.setTag("stable-redesign:growth-status");
+        if(paused||needsCheck)status.setTextColor(BetaUi.warning(dark));parent.addView(status);Ui.addSpacer(parent,8);
+        if(paused)parent.addView(BetaUi.row(a,BetaMedalUi.t(a,"수집 설정 확인","Check collection settings"),"",dark,()->a.startActivity(new Intent(a,MeterSettingsActivity.class))));
+        else if(needsCheck)parent.addView(BetaUi.row(a,BetaCopy.t(a,"check_home"),"",dark,()->MatteNav.open(a,1)));
     }
     static void tile(GrowthActivity a,LinearLayout parent,String label,String progress,int grade,boolean active,boolean dark,boolean stack){
         LinearLayout column=new LinearLayout(a);column.setOrientation(LinearLayout.VERTICAL);column.setGravity(android.view.Gravity.CENTER);column.setPadding(Ui.dp(a,4),Ui.dp(a,8),Ui.dp(a,4),Ui.dp(a,8));

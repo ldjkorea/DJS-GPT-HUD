@@ -144,7 +144,9 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         clear.setEnabled(!five.samples.isEmpty() || !weekly.samples.isEmpty()
                 || !monthly.samples.isEmpty() || UsageEventStore.hasEvents(this)
                 || UsageLedgerStore.hasObservations(this));
-        clear.setOnClickListener(view -> new AlertDialog.Builder(this)
+        clear.setOnClickListener(view -> {
+            final String expected=AccountSession.historyAccount(this);
+            new AlertDialog.Builder(this)
                 .setTitle(UsageHistoryActivity.this.getString(R.string.ui_clear_usage_history_03c461))
                 .setMessage(UsageHistoryActivity.this.getString(R.string.ui_this_removes_every_locally_stored_usage_sample_your_lat_e3f515))
                 .setNegativeButton(UsageHistoryActivity.this.getString(R.string.ui_cancel_77dfd2), null)
@@ -152,11 +154,15 @@ public final class UsageHistoryActivity extends AppCompatActivity {
                     android.content.Context app = getApplicationContext();
                     clear.setEnabled(false);
                     new Thread(() -> {
-                        AccountSession.clearHistory(app);
-                        runOnUiThread(() -> { if (!isDestroyed() && !isFinishing()) render(); });
+                        boolean cleared=AccountSession.clearHistory(app,expected);
+                        runOnUiThread(() -> { if (!isDestroyed() && !isFinishing()) {
+                            if(!cleared)android.widget.Toast.makeText(this,BetaExperienceUi.t(this,"계정이 바뀌어 삭제를 취소했어요.","Account changed. History was not cleared."),android.widget.Toast.LENGTH_LONG).show();
+                            render();
+                        } });
                     }, "codex-clear-history").start();
                 })
-                .show());
+                .show();
+        });
         content.addView(clear, new LinearLayout.LayoutParams(-1, Ui.dp(this, 58)));
     }
 

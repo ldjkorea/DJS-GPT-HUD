@@ -67,10 +67,11 @@ final class BetaQuotaUi {
         String label = BetaExperienceUi.t(activity,
                 fiveHour ? "5시간 한도 · 남음" : "주간 한도 · 남음",
                 fiveHour ? "5-hour remaining" : "Weekly remaining");
-        column.addView(BetaUi.body(activity, label, dark));
+        TextView heading=BetaUi.text(activity,label,14,Ui.secondaryText(dark),false);
+        column.addView(heading);
         TextView value = BetaUi.text(activity, window == null ? "—"
                 : UsagePrecision.remaining(window, AppPreferences.usageDecimalPlaces(activity)),
-                30, Ui.mainText(dark), true);
+                32, Ui.mainText(dark), true);
         value.setTag("beta998:quota:" + key + ":value");
         value.setContentDescription(label + ": " + value.getText());
         column.addView(value);
@@ -82,9 +83,11 @@ final class BetaQuotaUi {
         progress.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         column.addView(progress, new LinearLayout.LayoutParams(-1, Ui.dp(activity, 6)));
         TextView status = BetaUi.note(activity, "", dark);
+        status.setTextSize(13);
         status.setTag("beta998:quota:" + key + ":status");
         column.addView(status);
         TextView reset = BetaUi.note(activity, "", dark);
+        reset.setTextSize(13);
         reset.setTag("beta998:quota:" + key + ":reset");
         column.addView(reset);
         Runnable update = () -> {
@@ -108,9 +111,16 @@ final class BetaQuotaUi {
             status.setVisibility(state==UsageEvidence.State.CONFIRMED?android.view.View.GONE:android.view.View.VISIBLE);
             long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
             if (resetAt > now) {
-                reset.setText(activity.getString(R.string.home_quota_reset_schedule,
+                reset.setText(compact ? BetaExperienceUi.t(activity,"초기화까지 %s","Resets in %s",
+                        UsageFormat.compactDuration(activity, resetAt - now))
+                        : activity.getString(R.string.home_quota_reset_schedule,
                         UsageFormat.absolute(activity, resetAt, now),
                         UsageFormat.compactDuration(activity, resetAt - now)));
+                return;
+            }
+            if(compact){
+                reset.setText(resetAt<=0?activity.getString(R.string.ui_reset_time_unavailable_5c3030)
+                        :activity.getString(R.string.pub_five_expired_short));
                 return;
             }
             reset.setText(fiveHour ? FiveHourResetDisplay.text(activity, window,

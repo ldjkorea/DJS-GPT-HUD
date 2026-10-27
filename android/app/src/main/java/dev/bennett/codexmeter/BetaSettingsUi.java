@@ -43,15 +43,24 @@ final class BetaSettingsUi {
         LinearLayout app=BetaUi.group(parent,BetaCopy.t(a,"app_info"),dark);
         app.addView(BetaUi.note(a,"GPT HUD · "+AppConstants.VERSION_NAME,dark));
         app.addView(BetaUi.row(a,BetaCopy.t(a,"updates"),"",dark,()->a.startActivity(new Intent(a,UpdateActivity.class))));
+        String automatic=UpdatePreferences.automaticChecks(a)?t(a,"켜짐", "On")+" · "+DisplayMessages.localize(a,UpdateCheckFrequency.label(UpdatePreferences.checkIntervalHours(a))):t(a,"꺼짐", "Off");
+        View updateSettings=BetaUi.row(a,t(a,"자동 업데이트 설정","Automatic update settings"),automatic,dark,()->page(a,"updates"));
+        updateSettings.setTag("stable-redesign:update-settings");app.addView(updateSettings);
         app.addView(BetaUi.row(a,BetaCopy.t(a,"help"),"",dark,()->a.startActivity(new Intent(a,AboutActivity.class))));
         app.addView(BetaUi.row(a,BetaCopy.t(a,"diagnostics"),"",dark,()->BetaDiagnostics.show(a)));
 
         LinearLayout advanced=BetaUi.group(parent,"",dark),legacy=new LinearLayout(a);
         legacy.setOrientation(LinearLayout.VERTICAL);legacy.setVisibility(View.GONE);
-        View toggle=BetaUi.row(a,t(a,"고급·이전 형식 도구","Advanced and legacy tools"),t(a,"전체 이력 내보내기·이전 백업 형식·연결 설정","Full history export, legacy backups and connection settings"),dark,()->legacy.setVisibility(legacy.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE));
-        toggle.setTag("beta995:advanced");advanced.addView(toggle);advanced.addView(legacy);
-        legacy.addView(BetaUi.row(a,t(a,"홈 화면 구성","Home layout"),"",dark,()->BetaExperienceUi.preset(a)));
-        RecordSettings.legacyHub(a,legacy,dark,export,clear,details);
+        View toggle=BetaUi.row(a,t(a,"고급·이전 형식 도구","Advanced and legacy tools"),t(a,"전체 이력 내보내기·이전 백업 형식·연결 설정","Full history export, legacy backups and connection settings"),dark,()->{
+            if(legacy.getChildCount()==0){
+                legacy.addView(BetaUi.row(a,t(a,"홈 화면 구성","Home layout"),"",dark,()->BetaExperienceUi.preset(a)));
+                RecordSettings.legacyHub(a,legacy,dark,export,clear,details);
+            }
+            legacy.setVisibility(legacy.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);
+            View control=((LinearLayout)legacy.getParent()).getChildAt(0);
+            androidx.core.view.ViewCompat.setStateDescription(control,t(a,legacy.getVisibility()==View.VISIBLE?"펼쳐짐":"접힘",legacy.getVisibility()==View.VISIBLE?"Expanded":"Collapsed"));
+        });
+        toggle.setTag("beta995:advanced");androidx.core.view.ViewCompat.setStateDescription(toggle,t(a,"접힘","Collapsed"));advanced.addView(toggle);advanced.addView(legacy);
     }
     static void page(AppCompatActivity a,String page){a.startActivity(new Intent(a,SettingsActivity.class).putExtra("settings_page",page));}
 }

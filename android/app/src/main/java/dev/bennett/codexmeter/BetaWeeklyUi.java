@@ -48,6 +48,8 @@ final class BetaWeeklyUi {
             TextView empty=BetaUi.note(a,t(a,"일별 기록 수집 중","Collecting daily observations"),dark);empty.setTag("beta999:weekly-missing");graph.addView(empty);return;
         }
 
+        TextView legend=BetaUi.note(a,t(a,"일별 관측 증가 · 전체 사용량과 별도","Observed daily changes · not total usage"),dark);
+        legend.setTag("home:weekly-legend");legend.setTextSize(13);graph.addView(legend);
         int columns=a.getResources().getConfiguration().fontScale>1.3f||a.getResources().getConfiguration().screenWidthDp<360?Math.min(4,model.days.size()):model.days.size();
         GridLayout grid=new GridLayout(a);grid.setColumnCount(columns);grid.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));graph.addView(grid);
         final String graphAccount=SubscriptionStore.accountKey(a),graphStamp=stamp(a,AppPreferences.loadSnapshot(a));
@@ -60,7 +62,9 @@ final class BetaWeeklyUi {
             FrameLayout track=new FrameLayout(a);col.addView(track,new LinearLayout.LayoutParams(-1,Ui.dp(a,42)));
             if(day.measured&&day.points>0){View bar=new View(a);bar.setBackgroundColor(Ui.accent(a,dark));FrameLayout.LayoutParams fill=new FrameLayout.LayoutParams(Ui.dp(a,12),Math.max(1,Ui.dp(a,(int)Math.round(40*day.points/max))),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);track.addView(bar,fill);}
             if(!day.measured||day.points==0){TextView mark=BetaUi.note(a,day.future?"":day.measured?"0":"—",dark);mark.setGravity(Gravity.CENTER);track.addView(mark,new FrameLayout.LayoutParams(-1,-1));}
-            TextView label=BetaUi.note(a,day.date.format(DateTimeFormatter.ofPattern("M/d")),dark);label.setGravity(Gravity.CENTER);col.addView(label,new LinearLayout.LayoutParams(-1,-2));
+            // The full date range is above the chart; short day labels remain legible in an
+            // eight-date reset cycle without treating that cycle as a calendar week.
+            TextView label=BetaUi.note(a,day.date.format(DateTimeFormatter.ofPattern("d")),dark);label.setTextSize(13);label.setGravity(Gravity.CENTER);col.addView(label,new LinearLayout.LayoutParams(-1,-2));
             col.setContentDescription(day.date+" · "+(day.measured?t(a,"관측 증가 %s%%p","Observed increase %s percentage points",UsagePrecision.number(day.points)):day.future?t(a,"예정","Upcoming"):t(a,"자료 없음","No data")));
         }
 

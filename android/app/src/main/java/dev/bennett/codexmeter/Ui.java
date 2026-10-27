@@ -97,6 +97,8 @@ public final class Ui {
         // Compact headers in scroll pages; keep the original expandable settings toolbar.
         toolbar.setExpandable(false);
         toolbar.setExpanded(false, false);
+        // Each section supplies its own card. Avoid an additional rounded shell around the page.
+        toolbar.setMainRoundedCorners(ToolbarLayout.MainRoundedCorners.NONE);
         activity.setContentView(root);
         root.setBackgroundColor(background(activity,isDark(activity)));
         configureSystemBars(activity,root,isDark(activity));
@@ -623,9 +625,15 @@ public final class Ui {
             view.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() { // from class: dev.bennett.codexmeter.Ui.2
                 @Override // android.view.View.OnApplyWindowInsetsListener
                 public WindowInsets onApplyWindowInsets(View view2, WindowInsets windowInsets) {
-                    Insets insets = windowInsets.getInsets(WindowInsets.Type.systemBars());
+                    int safeTypes = WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout();
+                    Insets insets = windowInsets.getInsets(safeTypes);
                     view2.setPadding(paddingLeft + insets.left, paddingTop + insets.top, paddingRight + insets.right, insets.bottom + paddingBottom);
-                    return windowInsets;
+                    // The root has applied these safe areas. Forward IME/gesture information,
+                    // but do not let the nested One UI toolbar apply system bars a second time.
+                    return new WindowInsets.Builder(windowInsets)
+                            .setInsets(safeTypes, Insets.NONE)
+                            .setInsetsIgnoringVisibility(safeTypes, Insets.NONE)
+                            .setDisplayCutout(null).build();
                 }
             });
             return;

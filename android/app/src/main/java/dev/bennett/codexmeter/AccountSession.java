@@ -42,9 +42,24 @@ final class AccountSession {
         AppPreferences.setOAuthPending(context,false,"");
     }
 
+    /** Captured when the user starts a history action. Unknown identities cannot authorize it. */
+    static String historyAccount(Context context) {
+        AuthTokens tokens=SecureTokenStore.load(context);
+        return tokens==null?"signed-out":tokens.accountId.isEmpty()?null:"account:"+tokens.accountId;
+    }
+    static boolean historyAccountCurrent(Context context,String expected) {
+        return expected!=null&&expected.equals(historyAccount(context));
+    }
     static void clearHistory(Context context) {
         synchronized (UsageApi.NETWORK_LOCK) {
             AppPreferences.clearUsageHistory(context);
+        }
+    }
+    static boolean clearHistory(Context context,String expected) {
+        synchronized (UsageApi.NETWORK_LOCK) {
+            if(!historyAccountCurrent(context,expected))return false;
+            AppPreferences.clearUsageHistory(context);
+            return true;
         }
     }
 }

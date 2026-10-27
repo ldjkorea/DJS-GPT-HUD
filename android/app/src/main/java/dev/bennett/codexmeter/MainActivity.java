@@ -394,8 +394,8 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         LinearLayout crestSlot=BetaHomeSummaryUi.add(this,content,snapshot,dark,quotaClockUpdates);
-        FunHome.add(this,content,dark,this::restoreHomeScroll,crestSlot);
         BetaWeeklyUi.add(this,content,snapshot,dark,quotaClockUpdates);
+        FunHome.add(this,content,dark,this::restoreHomeScroll,crestSlot);
         if(available!=null){content.addView(buildUpdateCard(available));Ui.addSpacer(content,16);}
         if(snapshot==null){
             LinearLayout empty=Ui.card(this,dark);empty.addView(LedgerUi.heading(this,getString(R.string.ui_ledger_collecting),dark));

@@ -1,5 +1,29 @@
 [
   {
+    "version": "3.1.6",
+    "date": "2026-10-27",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.6",
+    "origin": "korean",
+    "ko": {
+      "title": "홈과 성장 화면 개편 · 계정과 백업 보호",
+      "changes": [
+        "홈을 티어·프로필·남은 한도, 이번 주간 사용량, AI의 한마디 순서로 정리합니다.",
+        "월 경계 날짜 누락을 수정하고 성장 관측 상태·도감 보유 수·오류 재시도를 명확히 표시합니다.",
+        "설정 진입을 가볍게 하고 자동 업데이트 설정을 바로 제공합니다. 계정 전환 중 기록 삭제·내보내기를 보호합니다.",
+        "백업 진행·중복 실행·화면 재생성·선택 범위를 보완합니다. 기존 로그인·레벨·XP·업적·칭호·장착·메달·보관함을 유지합니다."
+      ]
+    },
+    "en": {
+      "title": "Clearer home and growth screens; safer account and backup flows",
+      "changes": [
+        "Order home as profile and remaining limits, weekly usage, then the coach.",
+        "Fix skipped dates across month boundaries and clarify growth evidence, collection counts, errors and retry.",
+        "Open settings without full history loading; expose update preferences and bind history actions to their initiating account.",
+        "Keep backup scope and progress across recreation and prevent duplicates. Preserve login, growth, collections, medals, equipment and archives."
+      ]
+    }
+  },
+  {
     "version": "3.1.5",
     "date": "2026-10-25",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.5",
