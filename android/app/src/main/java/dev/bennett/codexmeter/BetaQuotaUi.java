@@ -44,10 +44,15 @@ final class BetaQuotaUi {
                 true, dark, stacked, clockUpdates,compact);
         addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.weekly,
                 false, dark, stacked, clockUpdates,compact);
-        if (snapshot != null && !compact) {
+        if (snapshot != null) {
             Ui.addSpacer(card, 8);
-            card.addView(BetaUi.note(activity, activity.getString(R.string.next_observed_at,
-                    V3Display.time(snapshot.fetchedAtMillis)), dark));
+            TextView observed=BetaUi.note(activity,"",dark);observed.setTag("home:quota-observed");card.addView(observed);
+            Runnable common=()->{
+                String text=BetaExperienceUi.t(activity,"마지막 확인 · %s","Last checked · %s",UsageFormat.absolute(activity,snapshot.fetchedAtMillis,System.currentTimeMillis()));
+                UsageEvidence.State state=commonState(activity,snapshot);
+                if(compact&&state!=null)text+=" · "+activity.getString(statusResource(state));
+                observed.setText(text);
+            };clockUpdates.add(common);common.run();
         }
     }
 
@@ -108,7 +113,7 @@ final class BetaQuotaUi {
                     : state == UsageEvidence.State.UNAVAILABLE ? R.string.phase_a_unavailable
                     : R.string.phase_a_confirmed;
             status.setText(resource);
-            status.setVisibility(state==UsageEvidence.State.CONFIRMED?android.view.View.GONE:android.view.View.VISIBLE);
+            status.setVisibility(state==UsageEvidence.State.CONFIRMED||compact&&state==commonState(activity,snapshot)?android.view.View.GONE:android.view.View.VISIBLE);
             long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
             if (resetAt > now) {
                 reset.setText(activity.getString(R.string.home_quota_reset_schedule,
@@ -130,5 +135,18 @@ final class BetaQuotaUi {
         };
         clockUpdates.add(update);
         update.run();
+    }
+    private static UsageEvidence.State commonState(MainActivity a,UsageSnapshot snapshot){
+        if(snapshot==null||snapshot.fiveHour==null||snapshot.weekly==null)return null;
+        long now=System.currentTimeMillis();boolean failed=!AppPreferences.getLastError(a).isEmpty();int interval=RefreshScheduler.effectiveRefreshMinutes(a);
+        UsageEvidence.State five=UsageEvidence.state(snapshot,snapshot.fiveHour,failed,now,interval);
+        UsageEvidence.State week=UsageEvidence.state(snapshot,snapshot.weekly,failed,now,interval);
+        // Reset expiry stays next to the affected window, including when a fetch also failed.
+        if(snapshot.fiveHour.effectiveResetAtMillis(snapshot.fetchedAtMillis)>0&&snapshot.fiveHour.effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return null;
+        if(snapshot.weekly.effectiveResetAtMillis(snapshot.fetchedAtMillis)>0&&snapshot.weekly.effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return null;
+        return five==week&&(five==UsageEvidence.State.CACHED_AFTER_FAILURE||five==UsageEvidence.State.STALE)?five:null;
+    }
+    private static int statusResource(UsageEvidence.State state){
+        return state==UsageEvidence.State.CACHED_AFTER_FAILURE?R.string.phase_a_cached_failed:R.string.phase_a_stale;
     }
 }

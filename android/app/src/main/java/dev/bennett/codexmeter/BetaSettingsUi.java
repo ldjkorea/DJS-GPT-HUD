@@ -25,7 +25,7 @@ final class BetaSettingsUi {
         CoachUi.settings(a,display,dark);
         display.addView(BetaUi.row(a,BetaCopy.t(a,"language"),AppLanguage.currentName(a),dark,()->AppLanguage.show(a,false)));
         display.addView(BetaUi.row(a,BetaCopy.t(a,"theme"),"",dark,()->page(a,"appearance")));
-        display.addView(BetaUi.row(a,BetaCopy.t(a,"display_options"),"",dark,()->a.startActivity(new Intent(a,DashboardReorderActivity.class))));
+        display.addView(BetaUi.row(a,t(a,"상세 한도 표시 설정","Detailed limit display"),t(a,"상세 화면의 순서·표시만 변경","Order and visibility in the detail screen only"),dark,()->a.startActivity(new Intent(a,DashboardReorderActivity.class))));
         display.addView(BetaUi.row(a,BetaCopy.t(a,"notifications"),"",dark,()->page(a,"notifications")));
 
         LinearLayout data=BetaUi.group(parent,t(a,"데이터·백업","Data and backup"),dark);
@@ -53,7 +53,6 @@ final class BetaSettingsUi {
         legacy.setOrientation(LinearLayout.VERTICAL);legacy.setVisibility(View.GONE);
         View toggle=BetaUi.row(a,t(a,"고급·이전 형식 도구","Advanced and legacy tools"),t(a,"전체 이력 내보내기·이전 백업 형식·연결 설정","Full history export, legacy backups and connection settings"),dark,()->{
             if(legacy.getChildCount()==0){
-                legacy.addView(BetaUi.row(a,t(a,"홈 화면 구성","Home layout"),"",dark,()->BetaExperienceUi.preset(a)));
                 RecordSettings.legacyHub(a,legacy,dark,export,clear,details);
             }
             legacy.setVisibility(legacy.getVisibility()==View.VISIBLE?View.GONE:View.VISIBLE);

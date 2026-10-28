@@ -48,14 +48,14 @@ public final class DashboardReorderActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         this.dark = Ui.isDark(this);
-        LinearLayout content = Ui.installPage(this, DashboardReorderActivity.this.getString(R.string.ui_edit_dashboard_fbfce4), true).content;
+        LinearLayout content = Ui.installPage(this, BetaExperienceUi.t(this,"상세 한도 표시 설정","Detailed limit display"), true).content;
         // Pull-to-refresh would swallow downward drag gestures while rearranging rows.
         androidx.swiperefreshlayout.widget.SwipeRefreshLayout refresh =
                 findViewById(R.id.dashboard_refresh);
         refresh.setEnabled(false);
 
         TextView hint = Ui.text(this,
-                DashboardReorderActivity.this.getString(R.string.ui_drag_the_handles_to_arrange_your_usage_cards_and_use_th_e90d93),
+                BetaExperienceUi.t(this,"한도 상세 화면의 카드 순서와 표시 여부를 바꿉니다. 홈의 티어·한도 → 한마디 → 주간 사용량 배치는 유지됩니다.","Change card order and visibility in limit details. Home keeps profile and limits, coach, then weekly usage."),
                 14.0f, Ui.secondaryText(dark));
         LinearLayout.LayoutParams hintParams = new LinearLayout.LayoutParams(-1, -2);
         hintParams.setMargins(Ui.dp(this, 6), Ui.dp(this, 2), Ui.dp(this, 6), Ui.dp(this, 16));

@@ -13,14 +13,19 @@ final class BetaCompactGrowthUi {
         String id=goal==null?"":goal.optString("id");
         if(recommended!=null){
             String label=BetaMedalUi.t(a,recommended.optBoolean("month")?"이번 달 %s":"이번 주 %s",recommended.optBoolean("month")?"This month · %s":"This week · %s",BetaMedalUi.grade(a,recommended.optInt("grade")));
-            next.addView(BetaUi.title(a,label,dark));ProgressBar bar=Ui.progress(a,dark);bar.setMax(recommended.optInt("target"));bar.setProgress(recommended.optInt("current"));bar.setContentDescription(label+" "+recommended.optInt("current")+" / "+recommended.optInt("target"));next.addView(bar);
+            next.addView(BetaUi.title(a,label,dark));
+            next.addView(BetaUi.body(a,BetaMedalUi.t(a,"확인된 활동이 %d일 더 쌓이면 %s을 받을 수 있어요.","Record %d more verified activity days to earn %s.",HudUiModel.remaining(recommended.optInt("current"),recommended.optInt("target")),label),dark));ProgressBar bar=Ui.progress(a,dark);bar.setMax(recommended.optInt("target"));bar.setProgress(recommended.optInt("current"));bar.setContentDescription(label+" "+recommended.optInt("current")+" / "+recommended.optInt("target"));next.addView(bar);
             next.addView(BetaUi.note(a,BetaMedalUi.t(a,"기록 %d / %d일 · %d일 더 쌓이면 달성","Recorded %d / %d days · %d more days to go",recommended.optInt("current"),recommended.optInt("target"),HudUiModel.remaining(recommended.optInt("current"),recommended.optInt("target"))),dark));next.addView(BetaUi.row(a,BetaMedalUi.t(a,"달성 조건","Conditions"),"",dark,()->BetaMedalUi.periods(a,dark)));
         }
         else if(id.isEmpty())next.addView(BetaUi.body(a,BetaCopy.t(a,"complete_all"),dark));
         else{
             next.addView(BetaUi.title(a,BetaCatalog.name(id,BetaIdentity.name(a),BetaCopy.ko(a)),dark));
             int target=Math.max(1,goal.optInt("target")),value=Math.min(target,goal.optInt("current"));ProgressBar bar=Ui.progress(a,dark);bar.setMax(target);bar.setProgress(value);bar.setContentDescription(value+" / "+target);next.addView(bar);
-            next.addView(BetaUi.note(a,value+" / "+target,dark));next.addView(BetaUi.row(a,BetaMedalUi.t(a,"달성 조건","Conditions"),"",dark,()->BetaGrowthUi.detail(a,state,id,dark,account)));
+            String[] entry=BetaCatalog.find(id);
+            if(entry!=null)next.addView(BetaUi.body(a,entry[BetaCopy.ko(a)?3:4],dark));
+            String metric=goal.optString("metric");
+            String unit=metric.equals("days")||metric.equals("week_now")?BetaMedalUi.t(a,"일","days"):metric.equals("weeks")||metric.equals("perfect")?BetaMedalUi.t(a,"주","weeks"):metric.equals("bronze")||metric.equals("silver")||metric.equals("gold")?BetaMedalUi.t(a,"개월","months"):"";
+            next.addView(BetaUi.note(a,value+" / "+target+(unit.isEmpty()?"":" "+unit),dark));next.addView(BetaUi.row(a,BetaMedalUi.t(a,"달성 조건","Conditions"),"",dark,()->BetaGrowthUi.detail(a,state,id,dark,account)));
         }
         JSONObject today=medals==null?null:medals.optJSONObject("today");
         LinearLayout summary=BetaUi.group(parent,BetaMedalUi.t(a,"나의 메달","My medals"),dark);summary.setTag("beta9911:medals");

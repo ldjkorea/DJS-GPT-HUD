@@ -33,11 +33,27 @@ final class BetaWeeklyUi {
         };clocks.add(update);update.run();
         LinearLayout graph=new LinearLayout(a);graph.setOrientation(LinearLayout.VERTICAL);graph.setTag("beta999:weekly-graph");card.addView(graph);
         graph.addView(BetaUi.note(a,t(a,"관측 기록 확인 중","Loading observed records"),dark));
-        final String stamp=stamp(a,snapshot);
+        load(a,graph,snapshot,dark);
+    }
+    static void load(MainActivity a,LinearLayout graph,UsageSnapshot snapshot,boolean dark){
+        final String expected=stamp(a,snapshot);
+        graph.removeAllViews();graph.setOnClickListener(null);graph.setClickable(false);graph.setFocusable(false);
+        graph.addView(BetaUi.note(a,t(a,"관측 기록 확인 중","Loading observed records"),dark));
         WORKER.execute(()->{
-            BetaWeeklyUsage.Model result=null;try{if(stamp.equals(stamp(a,AppPreferences.loadSnapshot(a))))result=BetaWeeklyReader.read(a.getApplicationContext(),snapshot,System.currentTimeMillis());}catch(Exception ignored){}
+            BetaWeeklyUsage.Model result=null;
+            try{if(expected.equals(stamp(a,AppPreferences.loadSnapshot(a))))result=BetaWeeklyReader.read(a.getApplicationContext(),snapshot,System.currentTimeMillis());}
+            catch(Exception ignored){ /* A read failure must not look like an empty history. */ }
             BetaWeeklyUsage.Model model=result;
-            a.runOnUiThread(()->{if(a.isDestroyed()||a.isFinishing()||!graph.isAttachedToWindow()||!stamp.equals(stamp(a,AppPreferences.loadSnapshot(a))))return;render(a,graph,model,dark);});
+            a.runOnUiThread(()->{
+                if(a.isDestroyed()||a.isFinishing()||!graph.isAttachedToWindow()||!expected.equals(stamp(a,AppPreferences.loadSnapshot(a))))return;
+                if(model!=null){render(a,graph,model,dark);return;}
+                graph.removeAllViews();
+                TextView error=BetaUi.note(a,t(a,"기록을 불러오지 못했어요. 저장된 기록은 유지됩니다.","Could not load records. Saved records are unchanged."),dark);
+                error.setTag("home:weekly-error");graph.addView(error);
+                Button retry=BetaUi.action(a,t(a,"다시 시도","Try again"),false,dark,()->{
+                    if(expected.equals(stamp(a,AppPreferences.loadSnapshot(a))))load(a,graph,snapshot,dark);
+                });retry.setTag("home:weekly-retry");graph.addView(retry);
+            });
         });
     }
     static String stamp(android.content.Context c,UsageSnapshot s){return LiveUsageStore.signature(c,s);}
@@ -45,7 +61,7 @@ final class BetaWeeklyUi {
     static void render(MainActivity a,LinearLayout graph,BetaWeeklyUsage.Model model,boolean dark){
         graph.removeAllViews();graph.setOnClickListener(null);graph.setClickable(false);graph.setFocusable(false);
         if(model==null||model.days.isEmpty()||model.measuredDays==0){
-            TextView empty=BetaUi.note(a,t(a,"일별 기록 수집 중","Collecting daily observations"),dark);empty.setTag("beta999:weekly-missing");graph.addView(empty);return;
+            TextView empty=BetaUi.note(a,model!=null&&model.recordedDays>0?t(a,"변화를 비교할 기록이 더 필요해요","More observations are needed to compare changes"):t(a,"아직 일별 기록이 없어요","No daily records yet"),dark);empty.setTag("beta999:weekly-missing");graph.addView(empty);return;
         }
 
         TextView legend=BetaUi.note(a,t(a,"일별 관측 증가 · 전체 사용량과 별도","Observed daily changes · not total usage"),dark);
@@ -64,8 +80,18 @@ final class BetaWeeklyUi {
             if(!day.measured||day.points==0){TextView mark=BetaUi.note(a,day.future?"":day.measured?"0":"—",dark);mark.setGravity(Gravity.CENTER);track.addView(mark,new FrameLayout.LayoutParams(-1,-1));}
             // The full date range is above the chart; short day labels remain legible in an
             // eight-date reset cycle without treating that cycle as a calendar week.
-            TextView label=BetaUi.note(a,day.date.format(DateTimeFormatter.ofPattern("d")),dark);label.setTextSize(13);label.setGravity(Gravity.CENTER);col.addView(label,new LinearLayout.LayoutParams(-1,-2));
-            col.setContentDescription(day.date+" · "+(day.measured?t(a,"관측 증가 %s%%p","Observed increase %s percentage points",UsagePrecision.number(day.points)):day.future?t(a,"예정","Upcoming"):t(a,"자료 없음","No data")));
+            boolean today=day.date.equals(java.time.LocalDate.now(LedgerAggregation.ZONE));
+            TextView label=BetaUi.note(a,day.date.format(DateTimeFormatter.ofPattern("d"))+(today?"\n"+t(a,"오늘","Today"):""),dark);
+            if(today){label.setTextColor(Ui.accent(a,dark));label.setTypeface(label.getTypeface(),android.graphics.Typeface.BOLD);label.setTag("home:weekly-today");}label.setTextSize(13);label.setGravity(Gravity.CENTER);col.addView(label,new LinearLayout.LayoutParams(-1,-2));
+            col.setMinimumHeight(Ui.dp(a,48));col.setFocusable(true);col.setClickable(true);
+            col.setOnClickListener(v->{
+                if(!java.util.Objects.equals(graphAccount,SubscriptionStore.accountKey(a))||!graphStamp.equals(stamp(a,AppPreferences.loadSnapshot(a))))return;
+                LinearLayout details=BetaMedalUi.content(a);
+                details.addView(BetaUi.body(a,day.measured?t(a,"관측 증가 %s%%p","Observed increase %s percentage points",UsagePrecision.number(day.points)):day.future?t(a,"예정","Upcoming"):t(a,"자료 없음","No data"),dark));
+                details.addView(BetaUi.note(a,t(a,"관측한 구간의 변화이며 전체 사용량·토큰 수를 뜻하지 않습니다.","Changes in observed intervals, not complete usage or token counts."),dark));
+                BetaMedalUi.show(a,day.date.toString(),details,graphAccount);
+            });
+            col.setContentDescription((today?t(a,"오늘 · ","Today · "):"")+day.date+" · "+(day.measured?t(a,"관측 증가 %s%%p","Observed increase %s percentage points",UsagePrecision.number(day.points)):day.future?t(a,"예정","Upcoming"):t(a,"자료 없음","No data")));
         }
 
     }
