@@ -233,6 +233,31 @@ public final class Stable319UiNativeTest extends Instrumentation {
             throw new AssertionError(e);
         }
     }
+    void designContrast(MainActivity home) {
+        main(() -> {
+            boolean dark = "dark".equals(theme);
+            check(Ui.isDark(home) == dark, "Explicit phone theme takes effect");
+            int accent = Ui.accent(home, dark);
+            for (int surface : new int[]{Ui.background(home, dark), Ui.cardColor(home, dark),
+                                        Ui.controlSurface(home, dark)}) {
+                for (int ink : new int[]{Ui.mainText(dark), Ui.secondaryText(dark), accent, Ui.solar(dark)}) {
+                    check(androidx.core.graphics.ColorUtils.calculateContrast(ink, surface) >= 4.5,
+                            "Phone text and action colors remain legible across surfaces");
+                }
+            }
+            ViewGroup nav = home.findViewById(R.id.matte_bottom);
+            ViewGroup tabs = (ViewGroup) nav.getChildAt(0);
+            check(tabs.getChildCount()==3, "All three primary destinations remain visible");
+            for(int i=0;i<tabs.getChildCount();i++){
+                TextView tab=(TextView)tabs.getChildAt(i);
+                check(tab.isSelected()==(i==1) && tab.getHeight()>=Ui.dp(home,48),
+                        "Home selection and accessible tab target");
+                check(tab.getContentDescription().length()>0, "Tab has a spoken label");
+            }
+            TextView remaining=home.findViewById(R.id.dashboard_content).findViewWithTag("beta998:quota:five-hour:value");
+            check("tnum".equals(remaining.getFontFeatureSettings()), "Stable digit widths for changing quotas");
+        });
+    }
     void recoveryCard(View goal, String action) {
         check(goal != null && text(goal).contains(action), "Recovery action shown: " + action);
         int actions = 0;
@@ -260,6 +285,7 @@ public final class Stable319UiNativeTest extends Instrumentation {
         String suffix=phase+"-"+locale+"-"+theme+"-"+c.getResources().getConfiguration().fontScale+"-"+c.getResources().getConfiguration().screenWidthDp+"x"+c.getResources().getConfiguration().screenHeightDp;java.io.File dir=new java.io.File(c.getExternalFilesDir(null),"stable319");dir.mkdirs();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new java.io.File(dir,"metrics-"+suffix+".json"))){out.write(measured[0].toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}shot(c,"redesign-home-"+suffix);
         if(!phase.equals("before")){
             main(()->{LinearLayout body=home.findViewById(R.id.dashboard_content);View summary=body.findViewWithTag("beta999:summary"),weekly=body.findViewWithTag("beta999:weekly"),coach=body.findViewWithTag("beta9911:coach");check(top(summary)<top(coach)&&top(coach)<top(weekly),"Profile then coach then weekly");check(body.findViewWithTag("beta998:quota:five-hour:value")!=null&&body.findViewWithTag("beta998:quota:weekly:value")!=null,"Both remaining limits retained");check(body.findViewWithTag("beta996:tier-badge")!=null&&body.findViewWithTag("beta996:level")!=null,"Tier and level retained");View gear=((dev.oneuiproject.oneui.layout.ToolbarLayout)home.findViewById(R.id.toolbar_layout)).getToolbar().findViewWithTag("beta9915:settings");float d=home.getResources().getDisplayMetrics().density;check(gear.getWidth()+1>=48*d&&gear.getHeight()+1>=48*d,"Settings target 48dp");check(measured[0].optDouble("toolbar_top_dp")<65,"No duplicate top safe area");});
+            designContrast(home);
             improvedHome(home);
             main(home::finish);active=null;
             medalReadRecovery(c, account);

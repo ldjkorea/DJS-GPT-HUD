@@ -13,8 +13,8 @@ import java.util.Locale;
 final class LedgerUi {
     private LedgerUi() { }
 
-    static int muted(boolean dark) { return dark ? Color.rgb(168, 173, 181) : Color.rgb(88, 94, 104); }
-    static int tint(boolean dark) { return dark ? Color.rgb(23, 25, 28) : Color.rgb(249, 249, 250); }
+    static int muted(boolean dark) { return Ui.secondaryText(dark); }
+    static int tint(boolean dark) { return Ui.card(dark); }
     static String number(double value) { return UsagePrecision.number(value); }
     static boolean stacked(Context context) {
         android.content.res.Configuration config = context.getResources().getConfiguration();
@@ -39,7 +39,9 @@ final class LedgerUi {
     }
     static TextView amount(Context context, String text, boolean dark, int size) {
         TextView view = Ui.text(context, text, size, Ui.accent(context, dark));
-        view.setTypeface(PretendardFont.bold(context)); return view;
+        view.setTypeface(PretendardFont.bold(context));
+        view.setFontFeatureSettings("tnum");
+        return view;
     }
     static Button action(Context context, String text, boolean primary, boolean dark, Runnable click) {
         Button button = Ui.button(context, text, primary, dark);

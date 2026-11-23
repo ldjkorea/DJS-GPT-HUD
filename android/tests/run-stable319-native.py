@@ -9,10 +9,13 @@ p.add_argument('--locale',default='ko',choices=['ko','en'])
 p.add_argument('--theme',default='dark',choices=['dark','light'])
 p.add_argument('--phase',default='verify',choices=['seed','before','verify'])
 p.add_argument('--long-name',action='store_true')
+p.add_argument('--coach-example',action='store_true',help='Capture a synthetic linked coach tip from the actual Korean home')
 p.add_argument('--output-dir',type=Path,help='Separate results directory for local follow-up checks')
-p.add_argument('--class-name',default='Stable319UiNativeTest',choices=['Stable319UiNativeTest','Stable319ContinuityNativeTest','Stable319PublicUpdateNativeTest','HomeQuotaScheduleNativeTest'])
+p.add_argument('--class-name',default='Stable319UiNativeTest',choices=['Stable319UiNativeTest','Stable319ContinuityNativeTest','Stable319PublicUpdateNativeTest','HomeQuotaScheduleNativeTest','HomeDesignPreviewNativeTest'])
 p.add_argument('--upgrade-to', choices=['3.1.9','3.1.10'], default='3.1.9')
 a=p.parse_args()
+if a.coach_example and (a.class_name!='HomeDesignPreviewNativeTest' or a.locale!='ko'):
+    p.error('--coach-example requires --class-name HomeDesignPreviewNativeTest --locale ko')
 from_name, from_code, to_code = {'3.1.9': ('3.1.8', 95, 96), '3.1.10': ('3.1.9', 96, 97)}[a.upgrade_to]
 to_name = a.upgrade_to
 root=Path(__file__).resolve().parents[1]
@@ -64,15 +67,18 @@ if a.class_name in {'Stable319UiNativeTest','HomeQuotaScheduleNativeTest'}:
     for key in ['window_animation_scale','transition_animation_scale','animator_duration_scale']:
         run([adb,'-s',a.serial,'shell','settings','put','global',key,'0'])
 result=shell('am','instrument','-r','-w','-e','phase',a.phase,'-e','locale',a.locale,'-e','theme',a.theme,'-e','long_name',str(a.long_name).lower(),
+             '-e','coach_example',str(a.coach_example).lower(),
              '-e','from_name',from_name,'-e','from_code',str(from_code),
              '-e','to_name',to_name,'-e','to_code',str(to_code),package+'/dev.bennett.codexmeter.'+a.class_name)
 font=shell('settings','get','system','font_scale').strip().replace('.','-')
 size=shell('wm','size').strip().splitlines()[-1].split(':')[-1].strip()
-(out/f'{a.class_name}-{a.phase}-{a.locale}-{a.theme}-font-{font}-{size}.txt').write_text(result,encoding='utf-8')
+case=a.class_name+('-coach-example' if a.coach_example else '')
+(out/f'{case}-{a.phase}-{a.locale}-{a.theme}-font-{font}-{size}.txt').write_text(result,encoding='utf-8')
 print(result,flush=True)
 if a.class_name not in {'Stable319ContinuityNativeTest'}:
     (out/'screens').mkdir(exist_ok=True)
-    run([adb,'-s',a.serial,'pull',f'/sdcard/Android/data/{target}/files/'+('stable319' if a.class_name in {'Stable319PublicUpdateNativeTest','Stable319UiNativeTest'} else 'stable316'),out/'screens'])
+    folder={'HomeDesignPreviewNativeTest':'home-design','HomeQuotaScheduleNativeTest':'stable316'}.get(a.class_name,'stable319')
+    run([adb,'-s',a.serial,'pull',f'/sdcard/Android/data/{target}/files/'+folder,out/'screens'])
 if a.class_name=='Stable319PublicUpdateNativeTest' and a.phase=='verify':
     for attempt in range(30):
         installed=shell('dumpsys','package',target)

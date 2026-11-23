@@ -30,8 +30,8 @@
   <string name="v3_credit_details">Credit details</string>
   <string name="v3_reset_readonly">Use Reset Credits in ChatGPT. This app shows balances, expiry dates and changes only.</string>
   <string name="v3_hidden">No visible allowances. Review display settings.</string>
-  <string name="v3_welcome">Understand your Codex usage</string>
-  <string name="v3_signin_note">Sign in to view your allowance and local usage records.</string>
+  <string name="v3_welcome">Your five-hour and weekly limits</string>
+  <string name="v3_signin_note">Connect your ChatGPT account to see how much Codex usage you have left and when each limit resets.</string>
   <string name="v3_first_refresh">Refresh to collect your first observation.</string>
   <string name="v3_advanced_charts">Advanced window charts</string>
   <string name="v3_observations">View observations for this date</string>

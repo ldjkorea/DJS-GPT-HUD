@@ -30,8 +30,8 @@
   <string name="v3_credit_details">크레딧 정보 보기</string>
   <string name="v3_reset_readonly">Reset Credit 실행은 ChatGPT에서 진행하세요. 이 앱에서는 잔여 횟수·만료일·변동 정보만 확인합니다.</string>
   <string name="v3_hidden">표시할 한도가 없습니다. 표시 설정을 확인하세요.</string>
-  <string name="v3_welcome">Codex 사용량을 한눈에</string>
-  <string name="v3_signin_note">로그인하면 남은 한도와 기기에 저장한 기록을 확인할 수 있습니다.</string>
+  <string name="v3_welcome">5시간·주간 한도를 한눈에</string>
+  <string name="v3_signin_note">ChatGPT 계정을 연결하면 Codex 한도가 얼마나 남았는지, 몇 시에 다시 쓸 수 있는지 확인할 수 있어요.</string>
   <string name="v3_first_refresh">새로고침하여 첫 사용량을 확인하세요.</string>
   <string name="v3_advanced_charts">고급 구간 차트</string>
   <string name="v3_observations">선택 날짜의 관측 기록 보기</string>

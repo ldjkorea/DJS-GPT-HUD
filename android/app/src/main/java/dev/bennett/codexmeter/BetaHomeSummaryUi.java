@@ -15,7 +15,7 @@ final class BetaHomeSummaryUi {
         identity.addView(BetaHomeUi.card(activity,dark,false));
         View divider=new View(activity);divider.setBackgroundColor(Ui.divider(dark));
         LinearLayout.LayoutParams rule=new LinearLayout.LayoutParams(-1,Ui.dp(activity,1));
-        rule.topMargin=Ui.dp(activity,16);rule.bottomMargin=Ui.dp(activity,14);card.addView(divider,rule);
+        rule.topMargin=Ui.dp(activity,12);rule.bottomMargin=Ui.dp(activity,12);card.addView(divider,rule);
         BetaQuotaUi.addContent(activity,card,snapshot,dark,clockUpdates);
         return identity;
     }

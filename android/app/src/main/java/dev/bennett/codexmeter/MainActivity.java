@@ -383,10 +383,21 @@ public final class MainActivity extends AppCompatActivity {
         GitHubRelease available=UpdatePreferences.availableUpdate(this);
         if(!SecureTokenStore.isSignedIn(this)){
             if(available!=null){content.addView(buildUpdateCard(available));Ui.addSpacer(content,16);}
-            LinearLayout welcome=Ui.card(this,dark);welcome.addView(LedgerUi.heading(this,getString(R.string.v3_welcome),dark));
-            Ui.addSpacer(welcome,12);welcome.addView(LedgerUi.caption(this,getString(R.string.v3_signin_note),dark));content.addView(welcome);Ui.addSpacer(content,16);
+            LinearLayout welcome=BetaUi.group(content,"",dark);
+            ImageView seal=new ImageView(this);
+            seal.setImageResource(R.drawable.samjogo_mark);
+            seal.setImageTintList(ColorStateList.valueOf(Ui.solar(dark)));
+            seal.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            welcome.addView(seal,new LinearLayout.LayoutParams(Ui.dp(this,56),Ui.dp(this,56)));
+            Ui.addSpacer(welcome,12);
+            TextView headline=BetaUi.title(this,getString(R.string.v3_welcome),dark);
+            androidx.core.view.ViewCompat.setAccessibilityHeading(headline,true);
+            welcome.addView(headline);
+            Ui.addSpacer(welcome,8);
+            welcome.addView(BetaUi.body(this,getString(R.string.v3_signin_note),dark));
+            Ui.addSpacer(welcome,18);
             Button signIn=Ui.nativePrimaryButton(this,AppPreferences.isOAuthPending(this)?getString(R.string.ui_continue_sign_in_cd1418):getString(R.string.ui_sign_in_with_chatgpt_fe0b3b));
-            signIn.setOnClickListener(v->startOrContinueSignIn());content.addView(signIn);
+            signIn.setOnClickListener(v->startOrContinueSignIn());welcome.addView(signIn);
             if(AppPreferences.isOAuthPending(this)){
                 content.addView(BetaUi.note(this,BetaCopy.t(this,"auth_waiting"),dark));
                 content.addView(BetaUi.action(this,getString(R.string.ui_cancel_77dfd2),false,dark,this::cancelSignIn));

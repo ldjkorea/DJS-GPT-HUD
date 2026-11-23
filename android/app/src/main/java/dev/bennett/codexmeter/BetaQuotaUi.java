@@ -93,7 +93,14 @@ final class BetaQuotaUi {
                 stacked ? 0 : 1);
         if (!fiveHour) {
             if (stacked) params.topMargin = Ui.dp(activity, 16);
-            else params.setMarginStart(Ui.dp(activity, 16));
+            else{
+                android.view.View divider=new android.view.View(activity);
+                divider.setBackgroundColor(Ui.divider(dark));
+                LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(Ui.dp(activity,1),-1);
+                line.setMarginStart(Ui.dp(activity,8));
+                line.setMarginEnd(Ui.dp(activity,8));
+                parent.addView(divider,line);
+            }
         }
         parent.addView(column, params);
         String label = BetaExperienceUi.t(activity,
@@ -104,7 +111,8 @@ final class BetaQuotaUi {
         TextView value = BetaUi.text(activity, window == null ? "—"
                 : UsagePrecision.remaining(window, AppPreferences.usageDecimalPlaces(activity)),
                 32, Ui.mainText(dark), true);
-        value.setFontFeatureSettings("tnum");
+        Ui.styleDigits(value,true);
+        if(window!=null&&window.preciseUsedPercent>=100)value.setTextColor(BetaUi.warning(dark));
         value.setTag("beta998:quota:" + key + ":value");
         value.setContentDescription(label + ": " + value.getText());
         column.addView(value);
@@ -112,10 +120,12 @@ final class BetaQuotaUi {
         progress.setMax(100000);
         progress.setProgress(window == null ? 0 : (int) Math.round((100 - window.preciseUsedPercent) * 1000));
         progress.setProgressTintList(ColorStateList.valueOf(Ui.accent(activity, dark)));
-        progress.setProgressBackgroundTintList(ColorStateList.valueOf(dark?0xff454b53:0xffccd1d8));
+        progress.setProgressBackgroundTintList(ColorStateList.valueOf(dark?0xff476065:0xffc7d3cc));
         progress.setVisibility(window == null ? android.view.View.GONE : android.view.View.VISIBLE);
         progress.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        column.addView(progress, new LinearLayout.LayoutParams(-1, Ui.dp(activity, 6)));
+        LinearLayout.LayoutParams bar=new LinearLayout.LayoutParams(-1,Ui.dp(activity,6));
+        bar.bottomMargin=Ui.dp(activity,3);
+        column.addView(progress,bar);
         TextView status = BetaUi.note(activity, "", dark);
         status.setTextSize(13);
         status.setTag("beta998:quota:" + key + ":status");

@@ -1,2 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
-<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:gravity="fill" android:src="@drawable/gpt_hud_challenger_monochrome"/>
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="16%" android:drawable="@drawable/samjogo_mark"/>

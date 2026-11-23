@@ -26,7 +26,8 @@ public final class CoachBanterSelfTest {
         JSONArray medals = new JSONObject(Files.readString(Path.of(args[1]))).getJSONArray("quotes");
         for (int i = 0; i < medals.length(); i++) raw.getJSONArray("quotes").put(medals.getJSONObject(i));
         CoachCatalog catalog = new CoachCatalog(raw);
-        check(catalog.schemaVersion == 2 && catalog.contentVersion == 5, "Current content revision, same storage schema");
+        check(catalog.schemaVersion == 2 && (catalog.contentVersion == 5 || catalog.contentVersion == 6),
+                "Banter and redesign catalogs share the same storage schema");
         check(catalog.quotes.size() == 624 && catalog.tips.size() == 40, "All content retained");
         Set<String> texts = new HashSet<>();
         int paid = 0;

@@ -17,13 +17,32 @@ final class BetaUi {
         android.util.TypedValue ripple=new android.util.TypedValue();c.getTheme().resolveAttribute(android.R.attr.selectableItemBackground,ripple,true);if(ripple.resourceId!=0)action.setBackgroundResource(ripple.resourceId);
         header.addView(action,new LinearLayout.LayoutParams(stack?-1:-2,-2));card.addView(header);return card;
     }
-    static int accent(boolean dark){return dark?0xff8eb8ff:0xff2458a8;}
-    static int accent(Context context,boolean dark){return TierTheme.accent(context,dark);}
-    static TextView text(Context c,String label,int size,int color,boolean bold){TextView t=Ui.text(c,label,size,color);t.setSingleLine(false);t.setIncludeFontPadding(true);t.setLineSpacing(0,1.2f);if(bold)t.setTypeface(PretendardFont.semibold(c));return t;}
-    static TextView title(Context c,String label,boolean dark){return text(c,label,20,Ui.mainText(dark),true);}
+    static int accent(boolean dark){return Ui.accent(dark);}
+    static int accent(Context context,boolean dark){return Ui.accent(context,dark);}
+    static TextView text(Context c,String label,int size,int color,boolean bold){
+        TextView view=Ui.text(c,label,size,color);
+        view.setIncludeFontPadding(true);
+        if(bold)view.setTypeface(PretendardFont.semibold(c));
+        return view;
+    }
+    static TextView title(Context c,String label,boolean dark){
+        TextView title=text(c,label,20,Ui.mainText(dark),true);
+        title.setTypeface(PretendardFont.bold(c));
+        title.setLetterSpacing(-0.015f);
+        return title;
+    }
     static TextView body(Context c,String label,boolean dark){return text(c,label,15,Ui.mainText(dark),false);}
     static TextView note(Context c,String label,boolean dark){return text(c,label,14,LedgerUi.muted(dark),false);}
-    static LinearLayout card(Context c,boolean dark){LinearLayout p=new LinearLayout(c);p.setOrientation(LinearLayout.VERTICAL);p.setPadding(Ui.dp(c,18),Ui.dp(c,16),Ui.dp(c,18),Ui.dp(c,16));p.setBackground(LedgerUi.shape(c,Ui.cardColor(c,dark),18));p.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));return p;}
+    static LinearLayout card(Context c,boolean dark){
+        LinearLayout card=new LinearLayout(c);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(Ui.dp(c,18),Ui.dp(c,16),Ui.dp(c,18),Ui.dp(c,16));
+        GradientDrawable panel=LedgerUi.shape(c,Ui.cardColor(c,dark),20);
+        panel.setStroke(Ui.dp(c,1),Ui.divider(dark));
+        card.setBackground(panel);
+        card.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
+        return card;
+    }
     static LinearLayout group(LinearLayout parent,String heading,boolean dark){if(parent.getChildCount()>0)Ui.addSpacer(parent,16);LinearLayout card=card(parent.getContext(),dark);if(!heading.isEmpty()){TextView title=title(parent.getContext(),heading,dark);androidx.core.view.ViewCompat.setAccessibilityHeading(title,true);card.addView(title);Ui.addSpacer(card,8);}parent.addView(card);return card;}
     static Button action(Context c,String label,boolean primary,boolean dark,Runnable run){Button b=Ui.button(c,label,primary,dark);b.setSingleLine(false);b.setTextSize(15);b.setIncludeFontPadding(true);b.setLineSpacing(0,1.35f);b.setMinHeight(Ui.dp(c,48));b.setMinimumHeight(Ui.dp(c,48));b.setPadding(Ui.dp(c,16),Ui.dp(c,12),Ui.dp(c,16),Ui.dp(c,12));b.setCompoundDrawables(null,null,null,null);b.setOnClickListener(v->run.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=Ui.dp(c,16);b.setLayoutParams(lp);return b;}
     static View row(Context c,String label,String value,boolean dark,Runnable click){LinearLayout row=new LinearLayout(c);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,Ui.dp(c,10),0,Ui.dp(c,10));row.setMinimumHeight(Ui.dp(c,56));LinearLayout words=new LinearLayout(c);words.setOrientation(LinearLayout.VERTICAL);words.addView(body(c,label,dark));if(value!=null&&!value.isEmpty()){Ui.addSpacer(words,6);words.addView(note(c,value,dark));}row.addView(words,new LinearLayout.LayoutParams(0,-2,1));ImageView icon=new ImageView(c);icon.setImageDrawable(new Chevron(LedgerUi.muted(dark)));icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);row.addView(icon,new LinearLayout.LayoutParams(Ui.dp(c,24),Ui.dp(c,24)));words.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);row.setFocusable(true);row.setClickable(true);row.setAccessibilityDelegate(new View.AccessibilityDelegate(){@Override public void onInitializeAccessibilityNodeInfo(View host,android.view.accessibility.AccessibilityNodeInfo info){super.onInitializeAccessibilityNodeInfo(host,info);info.setClassName(Button.class.getName());}});row.setContentDescription(label+(value==null||value.isEmpty()?"":", "+value));android.util.TypedValue ripple=new android.util.TypedValue();c.getTheme().resolveAttribute(android.R.attr.selectableItemBackground,ripple,true);if(ripple.resourceId!=0)row.setBackgroundResource(ripple.resourceId);row.setOnClickListener(v->click.run());return row;}

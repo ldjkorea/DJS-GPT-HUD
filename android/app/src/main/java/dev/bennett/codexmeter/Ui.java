@@ -74,7 +74,7 @@ public final class Ui {
     }
 
     public static void applySelectedTheme(Activity activity) {
-        String appTheme = phoneTheme(activity);
+        String appTheme = AppPreferences.getAppTheme(activity);
         if (activity instanceof AppCompatActivity) {
             int mode = AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
             if (WidgetOptions.THEME_DARK.equals(appTheme)) {
@@ -106,6 +106,14 @@ public final class Ui {
     }
 
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
+        Context context = toolbar.getContext();
+        boolean dark = isDark(context);
+        int page = background(context, dark);
+        toolbar.setBackgroundColor(page);
+        toolbar.getAppBarLayout().setBackgroundColor(page);
+        toolbar.getToolbar().setBackgroundColor(page);
+        toolbar.getToolbar().setTitleTextAppearance(context, R.style.HudToolbarTitle);
+        toolbar.getToolbar().setTitleTextColor(mainText(dark));
         toolbar.setTitle(title);
         toolbar.setShowNavigationButtonAsBack(back);
         // Force SESL to recalculate its responsive app-bar height after XML inflation.
@@ -157,12 +165,8 @@ public final class Ui {
         return context instanceof Activity && !(context instanceof WidgetConfigActivity)
                 && !(context instanceof LockWidgetConfigActivity);
     }
-    private static String phoneTheme(Context context) {
-        if(phoneSurface(context)&&!context.getSharedPreferences("codex_meter_settings_v1",0).contains("app_theme"))return WidgetOptions.THEME_DARK;
-        return AppPreferences.getAppTheme(context);
-    }
     public static boolean isDark(Context context) {
-        String appTheme = phoneTheme(context);
+        String appTheme = AppPreferences.getAppTheme(context);
         if (WidgetOptions.THEME_DARK.equals(appTheme)) {
             return true;
         }
@@ -182,6 +186,7 @@ public final class Ui {
     }
 
     public static int background(Context context, boolean z) {
+        if (phoneSurface(context)) return background(z);
         if (isOneUi(context)) {
             return z ? Color.rgb(13, 14, 16) : Color.rgb(242, 243, 245);
         }
@@ -189,10 +194,11 @@ public final class Ui {
     }
 
     public static int background(boolean z) {
-        return z ? Color.rgb(18, 18, 22) : Color.rgb(249, 247, 251);
+        return z ? 0xFF10252B : 0xFFF7F4ED;
     }
 
     public static int cardColor(Context context, boolean z) {
+        if (phoneSurface(context)) return card(z);
         if (!isOneUi(context)) {
             return systemColor(context, z ? "system_neutral1_800" : "system_neutral1_50", z ? Color.rgb(31, 30, 36) : Color.rgb(242, 239, 246));
         }
@@ -203,10 +209,11 @@ public final class Ui {
     }
 
     public static int card(boolean z) {
-        return z ? Color.rgb(31, 30, 36) : Color.rgb(242, 239, 246);
+        return z ? 0xFF1B343B : 0xFFFFFEF8;
     }
 
     public static int controlSurface(Context context, boolean z) {
+        if (phoneSurface(context)) return z ? 0xFF29474D : 0xFFE5ECE5;
         if (isOneUi(context)) {
             return z ? Color.rgb(32, 34, 38) : Color.rgb(238, 238, 241);
         }
@@ -214,15 +221,15 @@ public final class Ui {
     }
 
     public static int mainText(boolean z) {
-        return z ? Color.rgb(245, 245, 245) : Color.BLACK;
+        return z ? 0xFFF6F4E9 : 0xFF19312E;
     }
 
     public static int secondaryText(boolean z) {
-        return z ? Color.rgb(168, 173, 181) : Color.rgb(88, 94, 104);
+        return z ? 0xFFB4CBC8 : 0xFF506865;
     }
 
     public static int divider(boolean z) {
-        return z ? Color.rgb(43, 46, 51) : Color.rgb(228, 228, 228);
+        return z ? 0xFF3D555A : 0xFFCDD9D3;
     }
 
     /** Official One UI Primary (#0381FE) / dark-mode accent (#5CA9FF). */
@@ -231,13 +238,11 @@ public final class Ui {
     }
 
     public static int accent(Context context, boolean z) {
-        if(phoneSurface(context))return TierTheme.accent(context,z);
-        int oneUi = oneUiAccent(z);
+        int fallback = phoneSurface(context) ? accent(z) : oneUiAccent(z);
         if (AppPreferences.isMaterialYouEnabled(context)) {
-            // Material You system accents; fall back to One UI blues when unavailable.
-            return systemColor(context, z ? "system_accent1_200" : "system_accent1_600", oneUi);
+            return systemColor(context, z ? "system_accent1_200" : "system_accent1_600", fallback);
         }
-        return oneUi;
+        return fallback;
     }
 
     public static int desaturatedAccent(Context context, boolean dark) {
@@ -266,7 +271,11 @@ public final class Ui {
     }
 
     public static int accent(boolean z) {
-        return z ? Color.rgb(117, 220, 179) : Color.rgb(0, 113, 83);
+        return z ? 0xFF80DDC8 : 0xFF006758;
+    }
+
+    static int solar(boolean dark) {
+        return dark ? 0xFFF4C573 : 0xFF845314;
     }
 
     public static int onAccent(Context context, boolean z) {
@@ -296,6 +305,12 @@ public final class Ui {
         return PretendardFont.medium(context);
     }
 
+    // Only for stand-alone digits and percentages; Korean labels use Pretendard.
+    static void styleDigits(TextView view, boolean strong) {
+        view.setTypeface(Typeface.create("sans-serif-condensed", strong ? Typeface.BOLD : Typeface.NORMAL));
+        view.setFontFeatureSettings("tnum");
+    }
+
     public static TextView text(Context context, String str, float f, int i) {
         TextView textView = new TextView(context);
         textView.setText(DisplayMessages.localize(context, str));
@@ -303,7 +318,7 @@ public final class Ui {
         if(context instanceof Activity&&(i==warning(isDark(context))||i==danger(isDark(context))))i=isDark(context)?Color.rgb(225,227,232):Color.rgb(53,57,65);
         textView.setTextColor(i);
         textView.setTypeface(regularTypeface(context));
-        textView.setLineSpacing(0.0f, 1.35f);
+        textView.setLineSpacing(0.0f, 1.18f);
         textView.setIncludeFontPadding(false);
         return textView;
     }
@@ -382,10 +397,10 @@ public final class Ui {
         Button button = new AppCompatButton(context);
         button.setText(str);
         button.setAllCaps(false);
-        button.setTextSize(18.0f);
+        button.setTextSize(16.0f);
         button.setTypeface(mediumTypeface(context));
         button.setGravity(17);
-        button.setSingleLine(true);
+        button.setSingleLine(false);
         button.setIncludeFontPadding(false);
         button.setMinHeight(dp(context, 52.0f));
         button.setMinWidth(0);

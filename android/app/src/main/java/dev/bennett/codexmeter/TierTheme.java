@@ -3,6 +3,8 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.graphics.*;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import androidx.core.graphics.ColorUtils;
 
 /** Bundled original precision crests and local frames. No runtime artwork downloads or data writes. */
 final class TierTheme {
@@ -28,10 +30,20 @@ final class TierTheme {
             value=new Cached(blob,policy,revision,tier);cached=value;
         }return value.tier;
     }
-    static int accent(Context c,boolean dark){int t=tier(c);int color=t<0?0xffc2c9d0:COLORS[t];
+    static int accent(Context c,boolean dark){return accent(tier(c),dark);}
+    static int accent(int t,boolean dark){int color=t<0?0xffc2c9d0:COLORS[t];
         if(!dark){float[] hsv=new float[3];Color.colorToHSV(color,hsv);hsv[1]=Math.max(.3f,hsv[1]);hsv[2]=.38f;color=Color.HSVToColor(hsv);}return color;}
     static boolean effects(Context c){return c.getSharedPreferences("codex_tier_effects",0).getBoolean("enabled",true);}
-    static void frame(android.view.View view,int tier,boolean dark){view.setBackground(new Frame(tier,dark));}
+    static void frame(android.view.View view,int tier,boolean dark){
+        Context context=view.getContext();
+        int surface=Ui.cardColor(context,dark);
+        int pigment=tier<0?Ui.accent(context,dark):COLORS[tier];
+        GradientDrawable frame=new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{ColorUtils.blendARGB(surface,pigment,dark?.08f:.10f),surface});
+        frame.setCornerRadius(Ui.dp(context,22));
+        frame.setStroke(Ui.dp(context,1),ColorUtils.blendARGB(Ui.divider(dark),pigment,.16f));
+        view.setBackground(frame);
+    }
     static final class Frame extends Drawable {
         final int tier;final boolean dark,fill;final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         Frame(int t,boolean d){this(t,d,true);}

@@ -19,10 +19,10 @@ final class BetaHomeUi {
         boolean stack=a.getResources().getConfiguration().fontScale>1.3f||a.getResources().getConfiguration().screenWidthDp<300;
         boolean verticalHero = framed && stack;
         LinearLayout hero=new LinearLayout(a);hero.setOrientation(verticalHero?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);hero.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));hero.setGravity(verticalHero?Gravity.CENTER_HORIZONTAL:Gravity.CENTER_VERTICAL);
-        TierCompanionView badge=new TierCompanionView(a,rank);badge.setTag("beta996:tier-badge");int size=Ui.dp(a,framed?(stack?112:92):(stack?48:56));android.widget.FrameLayout emblem=TierTheme.companion(badge,rank);hero.addView(emblem,new LinearLayout.LayoutParams(size,size));
+        TierCompanionView badge=new TierCompanionView(a,rank,!framed);badge.setTag("beta996:tier-badge");int size=Ui.dp(a,framed?(stack?112:92):(stack?48:56));android.widget.FrameLayout emblem=TierTheme.companion(badge,rank);hero.addView(emblem,new LinearLayout.LayoutParams(size,size));
         LinearLayout identity=new LinearLayout(a);identity.setOrientation(LinearLayout.VERTICAL);LinearLayout.LayoutParams words=new LinearLayout.LayoutParams(verticalHero?-1:0,-2,verticalHero?0:1);if(verticalHero)words.topMargin=Ui.dp(a,12);else words.setMarginStart(Ui.dp(a,10));hero.addView(identity,words);
         String grade=rank<0?a.getString(R.string.fun_placing):a.getString(TierPresentation.NAMES[rank]);
-        TextView tier=BetaUi.text(a,grade,14,Ui.accent(a,dark),true);tier.setTag("beta996:tier-name");
+        TextView tier=BetaUi.text(a,grade,14,TierTheme.accent(rank,dark),true);tier.setTag("beta996:tier-name");
         TextView name=BetaUi.title(a,BetaIdentity.name(a),dark);name.setTag("beta996:name");
         LinearLayout rankRow=new LinearLayout(a);rankRow.setGravity(Gravity.CENTER_VERTICAL);
         rankRow.setOrientation(stack?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);

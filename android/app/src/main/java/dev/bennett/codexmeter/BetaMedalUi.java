@@ -14,7 +14,28 @@ import org.json.*;
 final class BetaMedalUi {
     static String t(Context c,String ko,String en,Object... args){return BetaExperienceUi.t(c,ko,en,args);}
     static String grade(Context c,int grade){return grade==3?t(c,"금메달","Gold"):grade==2?t(c,"은메달","Silver"):grade==1?t(c,"동메달","Bronze"):t(c,"기록 메달","Recorded");}
-    static int color(int grade,boolean dark){int color=grade==3?0xffe8ce91:grade==2?0xffd5e1eb:grade==1?0xffdfa778:0xffaee4ee;if(!dark){float[] hsv=new float[3];Color.colorToHSV(color,hsv);hsv[2]=.38f;color=Color.HSVToColor(hsv);}return color;}
+    static int color(int grade, boolean dark) {
+        switch (grade) {
+            case 3: return dark ? 0xffffd16f : 0xff785006;
+            case 2: return dark ? 0xffbbd8f1 : 0xff43617b;
+            case 1: return dark ? 0xfff3a783 : 0xff93482a;
+            default: return dark ? 0xff8ddcc9 : 0xff186955;
+        }
+    }
+
+    static int markGrade(JSONObject row, boolean future) {
+        if (future) return -4;
+        if (row == null) return -1;
+        if (row.optBoolean("active")) return row.optInt("grade");
+        return row.optBoolean("measured") ? -2 : -3;
+    }
+
+    static ImageView mark(Context c, int grade, boolean dark) {
+        ImageView image = new ImageView(c);
+        image.setImageDrawable(new Mark(c, grade, grade >= 0, dark));
+        image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return image;
+    }
     static String status(Context c,JSONObject today){return today==null||today.length()==0?t(c,"관측 대기","Waiting for observations"):today.optBoolean("active")?grade(c,today.optInt("grade")):today.optBoolean("measured")?t(c,"관측 증가 없음","No observed increase"):t(c,"기록 수집 중","Collecting observations");}
     static String recordStatus(Context c, LocalDate date, LocalDate today, JSONObject row) {
         if (date.isAfter(today)) return t(c, "예정", "Upcoming");
@@ -48,7 +69,7 @@ final class BetaMedalUi {
     static int textColor(String rarity,boolean dark){int color=rarity(rarity);if(!dark){float[] hsv=new float[3];Color.colorToHSV(color,hsv);hsv[2]=.38f;color=Color.HSVToColor(hsv);}return color;}
     static int titleColor(Context c,String legacy,boolean dark){JSONObject summary=BetaMedalStore.peek(c);String selected=summary==null?"":summary.optString("equipped");if(!selected.isEmpty())return textColor(selected.endsWith("3")?"legendary":"epic",dark);String[] entry=BetaCatalog.find(legacy);return entry==null?Ui.mainText(dark):textColor(entry[6],dark);}
     static String rarityName(Context c,String rarity){switch(rarity){case "rare":return t(c,"희귀","Rare");case "epic":return t(c,"영웅","Epic");case "legendary":return t(c,"전설","Legendary");case "mythic":return t(c,"신화","Mythic");default:return t(c,"일반","Common");}}
-    static void frame(View view,int color,boolean dark){GradientDrawable bg=new GradientDrawable();bg.setColor(dark?0xff1b1e24:0xfff8f9fc);bg.setCornerRadius(Ui.dp(view.getContext(),18));bg.setStroke(Ui.dp(view.getContext(),1),color);view.setBackground(bg);}
+    static void frame(View view,int color,boolean dark){GradientDrawable bg=LedgerUi.shape(view.getContext(),androidx.core.graphics.ColorUtils.blendARGB(Ui.cardColor(view.getContext(),dark),color,.07f),16);bg.setStroke(Ui.dp(view.getContext(),1),color);view.setBackground(bg);}
     static LinearLayout content(AppCompatActivity a){LinearLayout body=new LinearLayout(a);body.setOrientation(LinearLayout.VERTICAL);body.setPadding(Ui.dp(a,20),Ui.dp(a,16),Ui.dp(a,20),Ui.dp(a,16));return body;}
     static AlertDialog show(AppCompatActivity a,String title,LinearLayout body){return show(a,title,body,SubscriptionStore.accountKey(a));}
     static AlertDialog show(AppCompatActivity a,String title,LinearLayout body,String account){
@@ -63,7 +84,8 @@ final class BetaMedalUi {
     static void day(AppCompatActivity a,String date,JSONObject row,boolean dark,String expected){
         if(!java.util.Objects.equals(expected,SubscriptionStore.accountKey(a)))return;
         LinearLayout body=content(a);
-        body.addView(BetaUi.title(a,recordStatus(a,LocalDate.parse(date),BetaV4.day(System.currentTimeMillis()),row),dark));
+        LocalDate selected = LocalDate.parse(date), today = BetaV4.day(System.currentTimeMillis());
+        symbolRow(body, markGrade(row, selected.isAfter(today)), recordStatus(a,selected,today,row), dark);
         if(TrialDemo.active(a))body.addView(BetaUi.note(a,BetaCopy.t(a,"demo"),dark));
         if(row!=null){
             body.addView(BetaUi.body(a,observedIncrease(a,row),dark));
@@ -80,14 +102,22 @@ final class BetaMedalUi {
     }
     static void legend(AppCompatActivity a,boolean dark){
         LinearLayout body=content(a);
-        body.addView(BetaUi.body(a,t(a,"금·은·동: 획득한 메달\n기록 메달: 기준을 모으는 중에도 남기는 활동 기록\n—: 관측 자료 없음\n0: 관측된 구간의 증가 없음\n·: 기록 수집 중\n빈 날짜: 아직 오지 않은 날","Gold/silver/bronze: earned medal\nRecording medal: activity recorded while a personal reference is being built\n—: no observations\n0: no increase in the observed interval\n·: collecting observations\nBlank: upcoming date"),dark));
-        body.addView(BetaUi.note(a,t(a,"관측 자료 없음은 사용하지 않았다는 뜻이 아닙니다.","Missing observations do not prove inactivity."),dark));
+        for (int grade = 3; grade >= 1; grade--) symbolRow(body, grade, grade(a,grade), dark);
+        symbolRow(body, 0, t(a,"기록 메달 · 개인 기준을 모으는 중","Recorded activity · building a personal baseline"), dark);
+        symbolRow(body, -1, t(a,"관측 자료 없음","No observations"), dark);
+        symbolRow(body, -2, t(a,"관측 구간에서 증가 없음","No increase in the observed interval"), dark);
+        symbolRow(body, -3, t(a,"비교 관측이 더 필요해요","More observations needed"), dark);
+        Ui.addSpacer(body, 8);
+        body.addView(BetaUi.note(a,t(a,"일간 메달은 같은 한도에서 쌓은 내 기록을 기준으로 매겨요. 관측 자료가 없는 날의 실제 사용량은 알 수 없어요.","Daily medals use your personal history under the same quota policy. Usage is unknown on dates without observations."),dark));
         body.addView(BetaUi.row(a,t(a,"주간·월간 메달 조건","Weekly and monthly conditions"),"",dark,()->periods(a,dark)));
         show(a,t(a,"기호·메달 기준","Symbols and medal rules"),body);
     }
     static void periods(AppCompatActivity a,boolean dark){JSONObject summary=BetaMedalStore.peek(a);LinearLayout body=content(a);
-        body.addView(BetaUi.body(a,t(a,"주간3·4·5일 → 동·은·금\n월간7·10·14일 → 동·은·금","Weekly 3/4/5 days → bronze/silver/gold\nMonthly 7/10/14 days → bronze/silver/gold"),dark));
-        body.addView(BetaUi.note(a,t(a,"양의 사용량 변화가 확인된 날짜를 셉니다. 초기 기록 메달도 포함하며 하루는 한 번만 집계합니다. 날짜는 한국시간, 주간은 월요일부터입니다. 한도의 초기화 주기와 별개입니다. 메달은 XP나 필수 승급 조건을 추가하지 않습니다.","Counts dates with positive observed usage changes, including ungraded recording medals. One count per day, Korea time, Monday weeks; separate from quota reset cycles. Medals add no XP or required promotion conditions."),dark));
+        symbolRow(body, 1, t(a,"동메달 · 한 주 3일 또는 한 달 7일","Bronze · 3 days in a week or 7 in a month"),dark);
+        symbolRow(body, 2, t(a,"은메달 · 한 주 4일 또는 한 달 10일","Silver · 4 days in a week or 10 in a month"),dark);
+        symbolRow(body, 3, t(a,"금메달 · 한 주 5일 또는 한 달 14일","Gold · 5 days in a week or 14 in a month"),dark);
+        Ui.addSpacer(body, 8);
+        body.addView(BetaUi.note(a,t(a,"사용량 증가가 확인된 날마다 도장 한 칸이 채워져요. 기록 메달도 한 칸으로 셉니다.\n\n한국 시간 기준으로 한 주는 월요일, 한 달은 1일에 시작해요. 한도 초기화 일정과 별개이며 메달은 XP·승급 조건에 영향을 주지 않아요.","Each day with an observed increase fills one space, including days with a recording medal.\n\nWeeks begin on Monday and months on the first, Korea time. Quota reset dates follow their own schedule. These medals do not affect XP or level requirements."),dark));
         if(summary!=null)body.addView(BetaUi.body(a,t(a,"이번 주 %d일 · 이번 달 %d일","This week %d days · this month %d days",summary.optInt("week"),summary.optInt("month")),dark));
         show(a,t(a,"기간별 메달","Period medals"),body,summary==null?SubscriptionStore.accountKey(a):summary.optString("account"));
     }
@@ -103,14 +133,78 @@ final class BetaMedalUi {
             });row.setTag("beta9911:collectible:"+id);if(owned)frame(row,rarity(id.endsWith("days7")?"rare":id.endsWith("3")?"legendary":"epic"),dark);group.addView(row);
         }return visible;
     }
+    private static void symbolRow(LinearLayout body, int grade, String label, boolean dark) {
+        Context c = body.getContext();
+        LinearLayout row = new LinearLayout(c);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(Ui.dp(c,40));
+        LinearLayout.LayoutParams icon = new LinearLayout.LayoutParams(Ui.dp(c,36),Ui.dp(c,36));
+        icon.setMarginEnd(Ui.dp(c,10));
+        row.addView(mark(c,grade,dark),icon);
+        row.addView(BetaUi.body(c,label,dark),new LinearLayout.LayoutParams(0,-2,1));
+        body.addView(row);
+    }
+
+    /** One seal for the date tile, its legend and the next-goal preview. */
     static final class Mark extends Drawable {
-        final Paint paint=new Paint(3);final int grade;final boolean active,dark;final String glyph;
-        Mark(Context context,int grade,boolean active,boolean dark){this.grade=grade;this.active=active;this.dark=dark;glyph=grade==3?t(context,"금","G"):grade==2?t(context,"은","S"):grade==1?t(context,"동","B"):grade==-2?"0":"·";}
-        public void draw(Canvas c){Rect b=getBounds();float cx=b.exactCenterX(),cy=b.exactCenterY(),r=Math.min(b.width(),b.height())*.30f;paint.setColor(active?color(grade,dark):0xff66717b);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(Math.max(1,r*.12f));
-            if(grade==-4)return;if(grade==-1){c.drawLine(cx-r*.4f,cy,cx+r*.4f,cy,paint);return;}
-            if(active){Path ribbon=new Path();ribbon.moveTo(cx-r*.55f,cy+r*.65f);ribbon.lineTo(cx-r*.65f,cy+r*1.45f);ribbon.lineTo(cx,cy+r*1.15f);ribbon.lineTo(cx+r*.65f,cy+r*1.45f);ribbon.lineTo(cx+r*.55f,cy+r*.65f);c.drawPath(ribbon,paint);paint.setStyle(Paint.Style.FILL);paint.setAlpha(35);c.drawCircle(cx,cy,r,paint);paint.setAlpha(255);paint.setStyle(Paint.Style.STROKE);}
-            c.drawCircle(cx,cy,r,paint);paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(r*1.2f);paint.setTypeface(Typeface.DEFAULT_BOLD);c.drawText(glyph,cx,cy+r*.4f,paint);
+        final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        final int grade, metal, ink, muted;
+        final boolean active;
+        final String glyph;
+        final Path ribbons = new Path();
+        int alpha = 255;
+        Mark(Context c,int grade,boolean active,boolean dark) {
+            this.grade=grade;
+            this.active=active;
+            metal = color(grade,dark);
+            ink = dark ? 0xff193034 : 0xfffffbf5;
+            muted = Ui.secondaryText(dark);
+            glyph = grade==3?t(c,"금","G"):grade==2?t(c,"은","S"):grade==1?t(c,"동","B"):"";
+            paint.setTypeface(PretendardFont.bold(c));
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            ribbons.moveTo(5,14); ribbons.lineTo(3,22); ribbons.lineTo(7.2f,20.5f); ribbons.lineTo(9.3f,23); ribbons.lineTo(12,16); ribbons.close();
+            ribbons.moveTo(12,16); ribbons.lineTo(15.5f,22.5f); ribbons.lineTo(17,20); ribbons.lineTo(21,21.5f); ribbons.lineTo(18,14); ribbons.close();
         }
-        public void setAlpha(int a){paint.setAlpha(a);}public void setColorFilter(ColorFilter f){paint.setColorFilter(f);}public int getOpacity(){return PixelFormat.TRANSLUCENT;}
+        @Override public void draw(Canvas c) {
+            if (grade == -4) return;
+            Rect b = getBounds();
+            float scale = Math.min(b.width(),b.height()) / 24f;
+            c.save();
+            c.translate(b.exactCenterX()-12*scale,b.exactCenterY()-12*scale);
+            c.scale(scale,scale);
+            paint.setStyle(Paint.Style.FILL);
+            if (active) {
+                useColor(metal);
+                c.drawPath(ribbons,paint);
+                c.drawCircle(12,10,8.6f,paint);
+                useColor(ink);
+                paint.setStyle(Paint.Style.STROKE);
+                paint.setStrokeWidth(.85f);
+                c.drawCircle(12,10,6.8f,paint);
+                paint.setStyle(Paint.Style.FILL);
+                if (grade > 0) {
+                    paint.setTextSize(9.5f);
+                    c.drawText(glyph,12,10-(paint.ascent()+paint.descent())/2,paint);
+                } else {
+                    c.drawCircle(12,10,2.4f,paint);
+                }
+            } else {
+                useColor(muted);
+                paint.setStrokeWidth(1.5f);
+                if (grade == -1) c.drawLine(9,12,15,12,paint);
+                else if (grade == -2) {
+                    paint.setTextSize(13);
+                    c.drawText("0",12,12-(paint.ascent()+paint.descent())/2,paint);
+                } else c.drawCircle(12,12,1.65f,paint);
+            }
+            c.restore();
+        }
+        @Override public int getIntrinsicWidth() { return 24; }
+        @Override public int getIntrinsicHeight() { return 24; }
+        private void useColor(int color) { paint.setColor(color); paint.setAlpha(alpha); }
+        @Override public void setAlpha(int alpha) { this.alpha=alpha; invalidateSelf(); }
+        @Override public void setColorFilter(ColorFilter filter) { paint.setColorFilter(filter); invalidateSelf(); }
+        @Override public int getOpacity() { return PixelFormat.TRANSLUCENT; }
     }
 }

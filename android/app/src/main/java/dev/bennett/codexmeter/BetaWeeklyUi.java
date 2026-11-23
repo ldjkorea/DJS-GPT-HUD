@@ -23,6 +23,9 @@ final class BetaWeeklyUi {
         String range=span==null?t(a,"한도 주기 · 기간 정보 없음","Quota cycle · timeline unavailable")
                 :t(a,"한도 초기화 기준 · %s–%s","Quota reset cycle · %s–%s",date(span.start),date(span.end));
         TextView value=BetaUi.text(a,t(a,"%s 사용","%s used",UsagePrecision.used(window,AppPreferences.usageDecimalPlaces(a))),28,Ui.mainText(dark),true);
+        value.setTypeface(PretendardFont.bold(a));
+        value.setLetterSpacing(-.025f);
+        value.setFontFeatureSettings("tnum");
         value.setTag("beta999:weekly-used");card.addView(value);
         TextView period=BetaUi.note(a,range,dark);period.setTag("beta999:weekly-period");card.addView(period);
         TextView evidence=BetaUi.note(a,"",dark);evidence.setTag("beta999:weekly-evidence");card.addView(evidence);
@@ -98,8 +101,18 @@ final class BetaWeeklyUi {
             BetaWeeklyUsage.Day day=model.days.get(i);LinearLayout col=new LinearLayout(a);col.setOrientation(LinearLayout.VERTICAL);col.setGravity(Gravity.CENTER_HORIZONTAL);
             GridLayout.LayoutParams params=new GridLayout.LayoutParams();params.width=0;params.height=-2;params.topMargin=Ui.dp(a,8);grid.addView(col,params);
             FrameLayout track=new FrameLayout(a);track.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);col.addView(track,new LinearLayout.LayoutParams(-1,Ui.dp(a,42)));
-            if(day.measured&&day.points>0){View bar=new View(a);bar.setBackgroundColor(Ui.accent(a,dark));FrameLayout.LayoutParams fill=new FrameLayout.LayoutParams(Ui.dp(a,12),Math.max(1,Ui.dp(a,(int)Math.round(40*day.points/max))),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);track.addView(bar,fill);}
-            if(!day.measured||day.points==0){TextView mark=BetaUi.note(a,day.future?"":day.measured?"0":day.observations>0?"·":"—",dark);mark.setGravity(Gravity.CENTER);track.addView(mark,new FrameLayout.LayoutParams(-1,-1));}
+            if(day.measured&&day.points>0){
+                View bar=new View(a);
+                bar.setBackground(LedgerUi.shape(a,Ui.accent(a,dark),4));
+                FrameLayout.LayoutParams fill=new FrameLayout.LayoutParams(Ui.dp(a,14),
+                        Math.max(1,Ui.dp(a,(int)Math.round(40*day.points/max))),Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL);
+                track.addView(bar,fill);
+            }else{
+                String symbol=day.future?t(a,"예정","Later"):day.measured?"0":day.observations>0?"·":"—";
+                TextView mark=BetaUi.note(a,symbol,dark);
+                mark.setTextSize(12);mark.setGravity(Gravity.CENTER);
+                track.addView(mark,new FrameLayout.LayoutParams(-1,-1));
+            }
             // The full date range is above the chart; short day labels remain legible in an
             // eight-date reset cycle without treating that cycle as a calendar week.
             boolean today=day.date.equals(java.time.LocalDate.now(LedgerAggregation.ZONE));
