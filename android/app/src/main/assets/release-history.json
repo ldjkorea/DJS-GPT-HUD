@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.1.11",
+    "date": "2026-11-24",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.11",
+    "origin": "korean",
+    "ko": {
+      "title": "삼족오 휘장과 새로 다듬은 AI의 한마디",
+      "changes": [
+        "홈에 티어 색을 담은 삼족오 휘장을 넣었습니다. 밝은 종이색과 어두운 청록색 화면에서 5시간·주간 잔여 한도와 정확한 초기화 시각을 확인하세요.",
+        "기록에서는 날짜별 메달을, 성장에서는 다음 메달까지 남은 활동일을 먼저 보여줍니다.",
+        "AI의 한마디 329개를 다듬었습니다. 연결된 팁은 ‘한 수 써먹기’로 열 수 있고, 홈이 다시 그려질 때도 현재 계정의 문구를 이어서 표시합니다."
+      ]
+    },
+    "en": {
+      "title": "A new three-legged crow crest and refreshed Korean coaching",
+      "changes": [
+        "Your Home crest now reflects your tier. Paper and deep teal themes keep both remaining limits and their exact reset times in view.",
+        "Records shows medals by day. Growth starts with the active days needed for your next medal.",
+        "We revised 329 Korean coach lines. Open a linked prompt from its tip button. The current account’s coach card now recovers when Home redraws."
+      ]
+    }
+  },
+  {
     "version": "3.1.10",
     "date": "2026-11-24",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.10",
