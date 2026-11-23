@@ -26,6 +26,7 @@ public final class UsageLedgerDatabase extends SQLiteOpenHelper {
     private static final Object LOCK = new Object();
     private static UsageLedgerDatabase instance;
     private static boolean clearPending;
+    private static volatile long clearGeneration;
     private final Context app;
 
     private UsageLedgerDatabase(Context context) {
@@ -135,6 +136,7 @@ public final class UsageLedgerDatabase extends SQLiteOpenHelper {
     /** Existing explicit clear-history/sign-out policy: clear all ledger data, retain migration tombstone. */
     static void clear(Context context) {
         synchronized (LOCK) {
+            clearGeneration++;
             clearPending = true;
             try {
                 if (!context.getSharedPreferences("codex_next_ledger_state", Context.MODE_PRIVATE)
@@ -147,10 +149,24 @@ public final class UsageLedgerDatabase extends SQLiteOpenHelper {
         }
     }
 
+    static long clearGeneration() { return clearGeneration; }
+
+    /** A read-only home query cannot finish a pending clear. Reject its rows until a writer does. */
+    static long readableGeneration(Context context) {
+        synchronized (LOCK) {
+            if (hasPendingClear(context)) throw new IllegalStateException("History clear pending");
+            return clearGeneration;
+        }
+    }
+
+    private static boolean hasPendingClear(Context context) {
+        return clearPending || "1".equals(context.getSharedPreferences("codex_next_ledger_state",
+                Context.MODE_PRIVATE).getString("clear_pending", ""));
+    }
+
     /** Retry a failed explicit clear before admitting another account's data or exposing old rows. */
     private void finishPendingClear(SQLiteDatabase db) {
-        android.content.SharedPreferences state = app.getSharedPreferences("codex_next_ledger_state", Context.MODE_PRIVATE);
-        if (!clearPending && !"1".equals(state.getString("clear_pending", ""))) return;
+        if (!hasPendingClear(app)) return;
         db.beginTransaction();
         try {
             for (String table : new String[] {"observations", "daily", "uncertain_intervals", "events", "manual_requests", "metadata"})
@@ -160,7 +176,8 @@ public final class UsageLedgerDatabase extends SQLiteOpenHelper {
             meta(db, "sync_cleared_through", Long.toString(System.currentTimeMillis()));
             db.setTransactionSuccessful();
         } finally { db.endTransaction(); }
-        if (!state.edit().remove("clear_pending").commit()) throw new IllegalStateException("Cannot finish pending clear");
+        if (!app.getSharedPreferences("codex_next_ledger_state", Context.MODE_PRIVATE)
+                .edit().remove("clear_pending").commit()) throw new IllegalStateException("Cannot finish pending clear");
         clearPending = false;
     }
 

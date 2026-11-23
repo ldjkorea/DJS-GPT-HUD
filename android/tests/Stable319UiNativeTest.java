@@ -24,6 +24,25 @@ public final class Stable319UiNativeTest extends Instrumentation {
     int top(View v){int[] p=new int[2];v.getLocationOnScreen(p);return p[1];}
     JSONObject metrics(MainActivity a)throws Exception{JSONObject out=new JSONObject();View content=a.findViewById(R.id.dashboard_content),summary=content.findViewWithTag("beta999:summary"),weekly=content.findViewWithTag("beta999:weekly");dev.oneuiproject.oneui.layout.ToolbarLayout bar=a.findViewById(R.id.toolbar_layout);float d=a.getResources().getDisplayMetrics().density;out.put("toolbar_top_dp",top(bar.getToolbar())/d).put("summary_top_dp",top(summary)/d).put("summary_height_dp",summary.getHeight()/d).put("weekly_top_dp",top(weekly)/d).put("weekly_height_dp",weekly.getHeight()/d).put("screen_height_dp",a.getResources().getConfiguration().screenHeightDp).put("font",a.getResources().getConfiguration().fontScale).put("locale",locale).put("theme",theme);return out;}
     void improvedHome(MainActivity a)throws Exception{
+        WeeklyDesignNativeChecks.verify(this,a);
+        try(java.io.BufferedReader reader=new java.io.BufferedReader(new java.io.InputStreamReader(
+                a.getAssets().open("coach-ko-v2.json"),java.nio.charset.StandardCharsets.UTF_8))){
+            StringBuilder json=new StringBuilder();String line;
+            while((line=reader.readLine())!=null)json.append(line);
+            CoachCatalog.Tip tip=new CoachCatalog(new JSONObject(json.toString())).tips.values().iterator().next();
+            main(()->{
+                LinearLayout contents=new LinearLayout(a);
+                CoachUi.addTipGuide(a,contents,tip,Ui.isDark(a));
+                View notes=contents.findViewWithTag("coach:guide"),toggle=contents.findViewWithTag("coach:guide-toggle");
+                check(notes.getVisibility()==View.GONE,"Tip guidance starts folded");
+                check(toggle.performClick()&&notes.getVisibility()==View.VISIBLE,"Optional guidance opens in place");
+                check(text(notes).contains(tip.inputs)&&text(notes).contains(tip.check)&&text(notes).contains(tip.fallback),"All original guidance is accessible");
+                check(toggle.performClick()&&notes.getVisibility()==View.GONE,"Guidance can be folded again");
+                View details=a.findViewById(R.id.dashboard_content).findViewWithTag("home:quota-details");
+                check(details!=null&&details.getHeight()>=Ui.dp(a,48),"Limit detail is an accessible action");
+            });
+        }
+        WeeklyLedgerBoundaryChecks.run(this, a);
         Context c=getTargetContext();UsageSnapshot snapshot=AppPreferences.loadSnapshot(c);
         check(snapshot!=null&&snapshot.weekly!=null,"Weekly fixture available");
         String originalError=AppPreferences.getLastError(c);
@@ -34,6 +53,18 @@ public final class Stable319UiNativeTest extends Instrumentation {
             graph[0]=body.findViewWithTag("beta999:weekly-graph");
             long now=System.currentTimeMillis();
             BetaWeeklyUsage.Day day=new BetaWeeklyUsage.Day(java.time.LocalDate.now(LedgerAggregation.ZONE),false);day.measured=true;day.points=2.3;day.observations=2;
+            BetaWeeklyUsage.Day sample=new BetaWeeklyUsage.Day(day.date.minusDays(1),false);
+            String noRecord=BetaWeeklyUi.dayDescription(a,sample);
+            sample.observations=1;
+            String oneRecord=BetaWeeklyUi.dayDescription(a,sample);
+            check(!oneRecord.equals(noRecord)&&!oneRecord.contains("0"),"Single observation is neither missing nor zero");
+            sample.measured=true;sample.observations=2;
+            check(BetaWeeklyUi.dayDescription(a,sample).contains("0"),"Comparable observations can confirm zero");
+            sample.measured=false;sample.observations=1;
+            BetaWeeklyUi.render(a,graph[0],new BetaWeeklyUsage.Model(now-86400000,now+86400000,now,java.util.List.of(sample,day)),true);
+            ViewGroup chart=null;
+            for(int i=0;i<graph[0].getChildCount();i++)if(graph[0].getChildAt(i) instanceof GridLayout)chart=(GridLayout)graph[0].getChildAt(i);
+            check(chart!=null&&chart.getChildAt(0).getContentDescription().toString().contains(oneRecord),"Mixed chart announces the incomplete day accurately");
             BetaWeeklyUi.render(a,graph[0],new BetaWeeklyUsage.Model(now-1000,now+86400000,now,java.util.List.of(day)),true);
             TextView today=graph[0].findViewWithTag("home:weekly-today");check(today!=null,"Today marker shown");
             check(((View)today.getParent()).performClick(),"Individual day opens details");
@@ -65,6 +96,154 @@ public final class Stable319UiNativeTest extends Instrumentation {
             }finally{AppPreferences.setLastError(c,originalError);}
         });
     }
+    void medalReadRecovery(Context context, String account) throws Exception {
+        workers();
+        check(BetaMedalStore.peek(context) != null && !BetaMedalStore.failed(context),
+                "Start with a readable synthetic medal summary");
+        java.util.concurrent.atomic.AtomicInteger notifications = new java.util.concurrent.atomic.AtomicInteger();
+        Context probe = new ContextWrapper(context) {
+            @Override public Context getApplicationContext() { return this; }
+            @Override public void sendBroadcast(Intent intent) {
+                if (AppConstants.ACTION_USAGE_UPDATED.equals(intent.getAction())) notifications.incrementAndGet();
+                super.sendBroadcast(intent);
+            }
+        };
+        String cached = BetaMedalStore.peek(context).toString();
+        try (BetaMedalStore db = new BetaMedalStore(context)) {
+            SQLiteDatabase ledger = db.getWritableDatabase();
+            ledger.execSQL("ALTER TABLE medals RENAME TO qa_suspended_medals");
+            try {
+                BetaMedalStore.refresh(probe);
+                workers();
+                check(BetaMedalStore.failed(context) && notifications.get() == 1,
+                        "The first asynchronous read failure notifies visible screens");
+                check(cached.equals(BetaMedalStore.peek(context).toString()), "The last readable medal summary survives");
+                BetaMedalStore.refresh(probe);
+                workers();
+                check(notifications.get() == 1, "Repeated failure does not trigger a refresh loop");
+            } finally {
+                ledger.execSQL("ALTER TABLE qa_suspended_medals RENAME TO medals");
+            }
+        }
+        BetaMedalStore.refresh(probe);
+        workers();
+        check(!BetaMedalStore.failed(context) && notifications.get() == 2, "First successful retry notifies recovery");
+        BetaMedalStore.load(probe, account);
+        check(notifications.get() == 2, "Identical healthy summary stays quiet");
+    }
+    void rewardReceipts(Context c, String account) throws Exception {
+        JSONObject original = BetaGrowthStore.load(c, account);
+        long total = original.getLong("total"), originalSeen = original.getLong("seen_total");
+        check(total >= 5, "Synthetic growth balance covers a delayed receipt");
+        Activity opened = null;
+        try (BetaGrowthStore store = new BetaGrowthStore(c)) {
+            SQLiteDatabase db = store.getWritableDatabase();
+            try {
+                db.execSQL("UPDATE profiles SET document=json_set(document, '$.seen_total', ?) WHERE account=?",
+                        new Object[]{total - 5, account});
+                GrowthActivity compact = (GrowthActivity) startActivitySync(new Intent(c, GrowthActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                opened = compact;
+                ready(compact, "beta9911:next-goal");
+                check(BetaGrowthStore.load(c, account).getLong("seen_total") == total - 5,
+                        "Opening the growth overview preserves unread rewards");
+                main(compact::finish);
+                waitForIdleSync();
+                opened = null;
+
+                check(BetaGrowthStore.acknowledge(c, account + "-other", total) == 0, "Wrong account cannot acknowledge");
+                check(BetaGrowthStore.acknowledge(c, account, total + 1) == 0, "Unseen future balance cannot be acknowledged");
+                check(BetaGrowthStore.acknowledge(c, account, total - 2) == 3, "Only the displayed balance is acknowledged");
+                check(BetaGrowthStore.acknowledge(c, account, total - 2) == 0, "Repeated acknowledgement is idempotent");
+                check(BetaGrowthStore.load(c, account).getLong("seen_total") == total - 2, "Newer rewards remain unread");
+
+                GrowthActivity detail = (GrowthActivity) startActivitySync(new Intent(c, GrowthActivity.class)
+                        .putExtra("beta_details", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                opened = detail;
+                ready(detail, "growth:recent-rewards");
+                boolean[] visible = {false};
+                main(() -> {
+                    View notice = detail.findViewById(android.R.id.content).findViewWithTag("growth:recent-rewards");
+                    android.graphics.Rect clipped = new android.graphics.Rect();
+                    visible[0] = notice.getGlobalVisibleRect(clipped) && clipped.height() >= notice.getHeight();
+                });
+                if (!visible[0]) check(BetaGrowthStore.load(c, account).getLong("seen_total") == total - 2,
+                        "A detail receipt below the fold stays unread until visible");
+                main(() -> {
+                    TextView notice = detail.findViewById(android.R.id.content).findViewWithTag("growth:recent-rewards");
+                    check(notice.getText().toString().contains("+2"), "Detail displays only the two outstanding XP");
+                    notice.requestRectangleOnScreen(new android.graphics.Rect(0, 0, notice.getWidth(), notice.getHeight()), true);
+                    notice.invalidate();
+                });
+                for (int i = 0; i < 35 && BetaGrowthStore.load(c, account).getLong("seen_total") != total; i++) {
+                    Thread.sleep(100);
+                    workers();
+                }
+                check(BetaGrowthStore.load(c, account).getLong("seen_total") == total,
+                        "Drawing the visible detail notice acknowledges its displayed balance");
+                main(() -> detail.load(true));
+                boolean[] gone = {false};
+                for (int i = 0; i < 35 && !gone[0]; i++) {
+                    Thread.sleep(100);
+                    main(() -> gone[0] = detail.findViewById(android.R.id.content).findViewWithTag("growth:recent-rewards") == null);
+                }
+                check(gone[0], "An acknowledged receipt does not reappear on a fresh render");
+            } finally {
+                if (opened != null) { Activity screen = opened; main(screen::finish); }
+                workers();
+                db.execSQL("UPDATE profiles SET document=json_set(document, '$.seen_total', ?) WHERE account=?",
+                        new Object[]{originalSeen, account});
+            }
+        }
+    }
+    void growthGoals(GrowthActivity growth, JSONObject state) {
+        View screen = growth.findViewById(R.id.dashboard_content);
+        View actual = screen.findViewWithTag("beta9911:next-goal");
+        boolean dark = Ui.isDark(growth);
+        if (!growth.betaGrowthModel.collectionEnabled) {
+            recoveryCard(actual, BetaMedalUi.t(growth, "수집 설정 확인", "Check collection settings"));
+        }
+        bounds(screen);
+        try {
+            long now = System.currentTimeMillis();
+            JSONObject summary = new JSONObject().put("enabled", true).put("last_response", now);
+            JSONObject medals = new JSONObject().put("date", BetaV4.day(now).toString()).put("week", 2).put("month", 2);
+            LinearLayout healthy = new LinearLayout(growth);
+            BetaCompactGrowthUi.goalSection(growth, healthy, state,
+                    new BetaGrowthModel(summary, BetaGrowthModel.Status.PENDING), medals, false, dark);
+            View goal = healthy.findViewWithTag("beta9911:next-goal");
+            check(text(goal).contains(locale.equals("ko")?"달성 조건":"Conditions"),"Recommended goal retains condition details");
+            check(text(goal).contains("2 / 3"), "Verified dates displayed with the medal threshold");
+            check(text(goal).indexOf("2 / 3") == text(goal).lastIndexOf("2 / 3"), "Progress described once");
+
+            for (BetaGrowthModel.Status status : new BetaGrowthModel.Status[]{BetaGrowthModel.Status.OFF,
+                    BetaGrowthModel.Status.ERROR, BetaGrowthModel.Status.STALE, BetaGrowthModel.Status.BASELINE}) {
+                JSONObject observation = new JSONObject(summary.toString()).put("enabled", status != BetaGrowthModel.Status.OFF);
+                LinearLayout probe = new LinearLayout(growth);
+                BetaCompactGrowthUi.goalSection(growth, probe, state, new BetaGrowthModel(observation, status),
+                        medals, false, dark);
+                recoveryCard(probe.findViewWithTag("beta9911:next-goal"), status == BetaGrowthModel.Status.OFF
+                        ? BetaMedalUi.t(growth, "수집 설정 확인", "Check collection settings") : BetaCopy.t(growth, "check_home"));
+            }
+            LinearLayout failedRead = new LinearLayout(growth);
+            BetaCompactGrowthUi.goalSection(growth, failedRead, state,
+                    new BetaGrowthModel(summary, BetaGrowthModel.Status.COMPLETE), medals, true, dark);
+            recoveryCard(failedRead.findViewWithTag("beta9911:next-goal"), BetaCopy.t(growth, "retry_record"));
+        } catch (JSONException e) {
+            throw new AssertionError(e);
+        }
+    }
+    void recoveryCard(View goal, String action) {
+        check(goal != null && text(goal).contains(action), "Recovery action shown: " + action);
+        int actions = 0;
+        ViewGroup card = (ViewGroup) goal;
+        for (int i = 0; i < card.getChildCount(); i++) {
+            View child = card.getChildAt(i);
+            if (child.isClickable()) actions++;
+            check(!(child instanceof ProgressBar), "Suspended recommendations show no live progress");
+        }
+        check(actions == 1, "One recovery action");
+    }
     @Override public void onCreate(Bundle args){super.onCreate(args);phase=args.getString("phase","verify");locale=args.getString("locale","ko");theme=args.getString("theme","dark");longName="true".equals(args.getString("long_name","false"));start();}
     @Override public void onStart(){Context c=getTargetContext();Bundle result=new Bundle();Activity active=null;String originalTone=null;try{
         check(Build.MODEL.contains("sdk")&&c.getPackageName().equals("dev.bennett.codexmeter"),"Owned emulator stable package");
@@ -83,10 +262,15 @@ public final class Stable319UiNativeTest extends Instrumentation {
             main(()->{LinearLayout body=home.findViewById(R.id.dashboard_content);View summary=body.findViewWithTag("beta999:summary"),weekly=body.findViewWithTag("beta999:weekly"),coach=body.findViewWithTag("beta9911:coach");check(top(summary)<top(coach)&&top(coach)<top(weekly),"Profile then coach then weekly");check(body.findViewWithTag("beta998:quota:five-hour:value")!=null&&body.findViewWithTag("beta998:quota:weekly:value")!=null,"Both remaining limits retained");check(body.findViewWithTag("beta996:tier-badge")!=null&&body.findViewWithTag("beta996:level")!=null,"Tier and level retained");View gear=((dev.oneuiproject.oneui.layout.ToolbarLayout)home.findViewById(R.id.toolbar_layout)).getToolbar().findViewWithTag("beta9915:settings");float d=home.getResources().getDisplayMetrics().density;check(gear.getWidth()+1>=48*d&&gear.getHeight()+1>=48*d,"Settings target 48dp");check(measured[0].optDouble("toolbar_top_dp")<65,"No duplicate top safe area");});
             improvedHome(home);
             main(home::finish);active=null;
+            medalReadRecovery(c, account);
             active=startActivitySync(new Intent(c,GrowthActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));GrowthActivity growth=(GrowthActivity)active;ready(growth,"beta9911:next-goal");
-            main(()->{View goal=growth.findViewById(android.R.id.content).findViewWithTag("beta9911:next-goal");check(text(goal).contains(locale.equals("ko")?"달성 조건":"Conditions"),"Recommended goal retains condition details");bounds(growth.findViewById(R.id.dashboard_content));});shot(c,"redesign-growth-"+suffix);main(growth::finish);active=null;
+            main(()->{growthGoals(growth, before);GrowthDesignNativeChecks.verify(this,growth);});shot(c,"redesign-growth-"+suffix);
+            GrowthDesignNativeChecks.capture(this,growth,suffix);main(growth::finish);active=null;
             active=startActivitySync(new Intent(c,RecordsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));RecordsActivity records=(RecordsActivity)active;ready(records,"beta9911:records");
-            main(()->{records.month=YearMonth.of(2026,10);records.anchor=LocalDate.of(2026,10,26);records.move(false,1);check(records.anchor.equals(LocalDate.of(2026,11,1)),"Next week includes Nov1");records.move(false,-1);check(records.anchor.equals(LocalDate.of(2026,10,31)),"Previous week returns Oct31");bounds(records.body);});shot(c,"redesign-records-"+suffix);main(records::finish);active=null;
+            RecordsReviewNativeChecks.verify(this, records);
+            main(()->{records.month=YearMonth.of(2026,10);records.anchor=LocalDate.of(2026,10,26);records.move(false,1);check(records.anchor.equals(LocalDate.of(2026,11,1)),"Next week includes Nov1");records.move(false,-1);check(records.anchor.equals(LocalDate.of(2026,10,31)),"Previous week returns Oct31");
+                if(records.monthView)records.body.findViewWithTag("records:change-period").performClick();
+                bounds(records.body);});shot(c,"redesign-records-"+suffix);main(records::finish);active=null;
             active=startActivitySync(new Intent(c,BetaCatalogActivity.class).putExtra("titles",true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));BetaCatalogActivity catalog=(BetaCatalogActivity)active;ready(catalog,"stable-redesign:collection-summary");
             String stored=BetaMedalStore.export(c,account).toString();try(BetaMedalStore db=new BetaMedalStore(c)){db.getWritableDatabase().execSQL("UPDATE medals SET document=? WHERE account=?",new Object[]{"{",account});}
             main(catalog::load);workers();main(()->{check(catalog.medalLoadFailed&&catalog.state!=null,"Real medal DB error retains growth");check(catalog.body.findViewWithTag("stable-redesign:catalog-error")!=null,"Catalog error visible");});
@@ -94,6 +278,7 @@ public final class Stable319UiNativeTest extends Instrumentation {
             main(catalog::load);workers();main(()->{check(!catalog.medalLoadFailed&&!catalog.loadFailed,"Catalog retry succeeds");check(catalog.body.findViewWithTag("stable-redesign:catalog-filter:1").isSelected(),"Owned filter selected");check(catalog.stacked()==(catalog.getResources().getConfiguration().fontScale>1.3f||catalog.getResources().getConfiguration().screenWidthDp<360),"Catalog responds to width and font");bounds(catalog.body);});shot(c,"redesign-catalog-"+suffix);main(catalog::finish);active=null;
             active=startActivitySync(new Intent(c,MeterSettingsActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));Activity settings=active;ready(settings,"stable-redesign:update-settings");
             main(()->{View row=settings.findViewById(android.R.id.content).findViewWithTag("stable-redesign:update-settings");android.view.accessibility.AccessibilityNodeInfo info=row.createAccessibilityNodeInfo();check(Button.class.getName().contentEquals(info.getClassName()),"Settings row exposes button role");View advanced=settings.findViewById(android.R.id.content).findViewWithTag("beta995:advanced");LinearLayout holder=(LinearLayout)advanced.getParent();LinearLayout legacy=(LinearLayout)holder.getChildAt(1);check(legacy.getChildCount()==0,"Advanced content is lazy");advanced.performClick();check(legacy.getChildCount()>0&&legacy.getVisibility()==View.VISIBLE,"Advanced creates on demand");check(!text(legacy).contains(locale.equals("ko")?"홈 화면 구성":"Home layout"),"Inactive home preset is not offered");bounds(settings.findViewById(R.id.dashboard_content));});shot(c,"redesign-settings-"+suffix);main(settings::finish);active=null;
+            rewardReceipts(c, account);
             JSONObject after=BetaGrowthStore.load(c,account);for(String field:new String[]{"total","level","progress","honors","titles","rewards","equipped"})check(before.get(field).toString().equals(after.get(field).toString()),"No UI award or loss: "+field);check(medalBefore.equals(BetaMedalStore.export(c,account).toString()),"Medal record unchanged");
         }
         result.putString("stream","Stable redesign native: "+checks+" checks passed; "+suffix+"; synthetic only.\n");finish(-1,result);

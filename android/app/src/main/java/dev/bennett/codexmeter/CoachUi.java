@@ -24,6 +24,8 @@ final class CoachUi {
         if(tone.equals("off")){card.setVisibility(View.GONE);return card;}
         card.setPadding(Ui.dp(a,10),Ui.dp(a,14),Ui.dp(a,10),Ui.dp(a,14));
         TextView label=LedgerUi.caption(a,a.getString(R.string.live_ai_title),dark);
+        androidx.core.view.ViewCompat.setAccessibilityHeading(label,true);
+        label.setTextColor(BetaUi.accent(a,dark));
         label.setGravity(Gravity.CENTER);label.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
         card.addView(label,new LinearLayout.LayoutParams(-1,-2));Ui.addSpacer(card,8);
         boolean ko=RpgGrowthUi.korean(a);String text;
@@ -45,17 +47,35 @@ final class CoachUi {
         if(!selection.identity.equals(SpicyQuotes.identity(a,account))||!account.equals(SubscriptionStore.accountKey(a)))return;
         CoachCatalog.Tip t=selection.tip;if(t==null)return;
         LinearLayout content=new LinearLayout(a);content.setOrientation(LinearLayout.VERTICAL);content.setPadding(Ui.dp(a,20),Ui.dp(a,12),Ui.dp(a,20),Ui.dp(a,12));
-        content.addView(BetaUi.body(a,selection.text,dark));Ui.addSpacer(content,12);
-        content.addView(BetaUi.title(a,BetaExperienceUi.t(a,"준비할 내용","What to provide"),dark));
-        content.addView(LedgerUi.caption(a,t.inputs+"\n\n"+t.fallback,dark));Ui.addSpacer(content,16);
         content.addView(BetaUi.title(a,BetaExperienceUi.t(a,"실전 프롬프트","Ready-to-use prompt"),dark));Ui.addSpacer(content,8);
-        TextView prompt=BetaUi.body(a,t.prompt,dark);prompt.setTextIsSelectable(true);prompt.setPadding(Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14));prompt.setBackground(LedgerUi.shape(a,Ui.controlSurface(a,dark),12));content.addView(prompt);Ui.addSpacer(content,16);content.addView(LedgerUi.caption(a,t.check,dark));
+        TextView prompt=BetaUi.body(a,t.prompt,dark);prompt.setTag("coach:prompt");prompt.setTextIsSelectable(true);prompt.setPadding(Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14),Ui.dp(a,14));prompt.setBackground(LedgerUi.shape(a,Ui.controlSurface(a,dark),12));content.addView(prompt);
+        addTipGuide(a,content,t,dark);
         ScrollView scroll=new ScrollView(a);scroll.addView(content);
         AlertDialog dialog=new AlertDialog.Builder(a).setTitle(t.title).setView(scroll).setPositiveButton(R.string.coach_copy,null).setNegativeButton(R.string.coach_close,null).create();
         dialog.setOnShowListener(ignored->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
             if(!selection.identity.equals(SpicyQuotes.identity(a,account))||!account.equals(SubscriptionStore.accountKey(a))){dialog.dismiss();return;}
             boolean copied=copyPrompt((ClipboardManager)a.getSystemService(Context.CLIPBOARD_SERVICE),t.title,prompt.getText().toString());Toast.makeText(a,copied?R.string.coach_copied:R.string.coach_copy_failed,copied?Toast.LENGTH_SHORT:Toast.LENGTH_LONG).show();
         }));OPEN.put(a,dialog);OWNER.put(a,selection.identity);dialog.setOnDismissListener(x->{if(OPEN.get(a)==dialog){OPEN.remove(a);OWNER.remove(a);}});dialog.show();
+    }
+    static void addTipGuide(AppCompatActivity a,LinearLayout content,CoachCatalog.Tip tip,boolean dark){
+        String expand=BetaExperienceUi.t(a,"사용 요령 보기","Show guidance");
+        String collapse=BetaExperienceUi.t(a,"사용 요령 접기","Hide guidance");
+        Button toggle=Ui.button(a,expand,false,dark);
+        toggle.setTag("coach:guide-toggle");
+        toggle.setMinHeight(Ui.dp(a,48));
+        LinearLayout notes=new LinearLayout(a);
+        notes.setTag("coach:guide");notes.setOrientation(LinearLayout.VERTICAL);
+        notes.addView(BetaUi.title(a,BetaExperienceUi.t(a,"준비할 내용","What to provide"),dark));
+        notes.addView(BetaUi.body(a,tip.inputs+"\n\n"+tip.fallback,dark));Ui.addSpacer(notes,10);
+        notes.addView(BetaUi.title(a,BetaExperienceUi.t(a,"결과 확인","Check the result"),dark));
+        notes.addView(BetaUi.body(a,tip.check,dark));
+        notes.setVisibility(View.GONE);
+        toggle.setOnClickListener(v->{
+            boolean opening=notes.getVisibility()!=View.VISIBLE;
+            notes.setVisibility(opening?View.VISIBLE:View.GONE);
+            toggle.setText(opening?collapse:expand);
+        });
+        Ui.addSpacer(content,8);content.addView(toggle);content.addView(notes);
     }
     static boolean copyPrompt(ClipboardManager clipboard,String title,String visiblePrompt){try{if(clipboard==null)return false;clipboard.setPrimaryClip(ClipData.newPlainText(title,visiblePrompt));return true;}catch(RuntimeException error){return false;}}
     static void settings(AppCompatActivity a,LinearLayout parent,boolean dark){

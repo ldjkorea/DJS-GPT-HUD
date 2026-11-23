@@ -13,10 +13,15 @@ import org.json.*;
  * APK hash/version and run Stable319ContinuityNativeTest; a click is not installation proof.
  */
 public final class Stable319PublicUpdateNativeTest extends Instrumentation {
-    String phase;
+    String phase, fromName, toName;
+    int toCode;
     int checks;
     void check(boolean value, String why) { checks++; if (!value) throw new AssertionError(why); }
-    @Override public void onCreate(Bundle args) { super.onCreate(args); phase=args.getString("phase","before"); start(); }
+    @Override public void onCreate(Bundle args) { super.onCreate(args); phase=args.getString("phase","before");
+        fromName=args.getString("from_name","3.1.8");
+        toName=args.getString("to_name","3.1.9");
+        toCode=Integer.parseInt(args.getString("to_code","96"));
+        start(); }
     File receipt(Context c) { return new File(c.getExternalFilesDir(null),"stable319/public-update.json"); }
     void save(Context c, JSONObject value) throws Exception {
         File file=receipt(c); file.getParentFile().mkdirs();
@@ -44,19 +49,19 @@ public final class Stable319PublicUpdateNativeTest extends Instrumentation {
         try {
             check(Build.MODEL.contains("sdk") && c.getPackageName().equals("dev.bennett.codexmeter"),"Owned stable emulator only");
             check("stable316-qa".equals(SecureTokenStore.load(c).accountId),"Synthetic continuity account required");
-            check(c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName.equals("3.1.8"),"Existing published 3.1.8 required");
+            check(c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName.equals(fromName),"Existing published "+fromName+" required");
             if (phase.equals("before")) {
                 List<GitHubRelease> releases=ReleaseUpdateClient.check(c);
-                GitHubRelease release=GitHubReleaseParser.findVersion(releases,"3.1.9");
-                check(release!=null && !release.prerelease,"Live stable 3.1.9 discovered by production client");
-                check(release.apkUrl.startsWith("https://github.com/ldjkorea/DJS-GPT-HUD/releases/download/v3.1.9/"),"Production release asset");
+                GitHubRelease release=GitHubReleaseParser.findVersion(releases,toName);
+                check(release!=null && !release.prerelease,"Live stable "+toName+" discovered by production client");
+                check(release.apkUrl.startsWith("https://github.com/ldjkorea/DJS-GPT-HUD/releases/download/v"+toName+"/"),"Production release asset");
                 UpdateInstaller.PreparedUpdate prepared=UpdateInstaller.prepare(c,release,(done,total)->{});
-                check(prepared.versionCode==96 && prepared.versionName.equals("3.1.9"),"Downloaded package version and code validated");
-                JSONObject receipt=new JSONObject().put("from","3.1.8").put("to","3.1.9").put("apk",release.apkName)
+                check(prepared.versionCode==toCode && prepared.versionName.equals(toName),"Downloaded package version and code validated");
+                JSONObject receipt=new JSONObject().put("from",fromName).put("to",toName).put("apk",release.apkName)
                         .put("sha256",ReleaseIntegrity.sha256(prepared.apk)).put("bytes",prepared.apk.length())
                         .put("url",release.apkUrl).put("prepared",true).put("synthetic_only",true);
                 save(c,receipt);
-                out.putString("stream","Stable319 public download: "+checks+" checks passed; production checksum, package, signing and version checks ran.\n");
+                out.putString("stream","Stable "+toName+" public download: "+checks+" checks passed; production checksum, package, signing and version checks ran.\n");
                 finish(-1,out);
             } else {
                 check(phase.equals("verify"),"Only before/verify phases");
@@ -66,7 +71,7 @@ public final class Stable319PublicUpdateNativeTest extends Instrumentation {
                 android.accessibilityservice.AccessibilityServiceInfo service=automation.getServiceInfo();
                 service.flags|=android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS;
                 automation.setServiceInfo(service);
-                Activity update=startActivitySync(new Intent(c,UpdateActivity.class).putExtra(UpdateActivity.EXTRA_VERSION,"3.1.9")
+                Activity update=startActivitySync(new Intent(c,UpdateActivity.class).putExtra(UpdateActivity.EXTRA_VERSION,toName)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                 waitForIdleSync();Thread.sleep(1000);
                 final Throwable[] actionFailure={null};

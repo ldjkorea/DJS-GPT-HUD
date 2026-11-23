@@ -7,6 +7,7 @@ import android.graphics.drawable.*;
 import android.view.*;
 import android.widget.*;
 import androidx.appcompat.app.AppCompatActivity;
+import java.time.LocalDate;
 import org.json.*;
 
 /** Compact labels and explicit local detail views. No database or reward work on the UI thread. */
@@ -15,6 +16,31 @@ final class BetaMedalUi {
     static String grade(Context c,int grade){return grade==3?t(c,"금메달","Gold"):grade==2?t(c,"은메달","Silver"):grade==1?t(c,"동메달","Bronze"):t(c,"기록 메달","Recorded");}
     static int color(int grade,boolean dark){int color=grade==3?0xffe8ce91:grade==2?0xffd5e1eb:grade==1?0xffdfa778:0xffaee4ee;if(!dark){float[] hsv=new float[3];Color.colorToHSV(color,hsv);hsv[2]=.38f;color=Color.HSVToColor(hsv);}return color;}
     static String status(Context c,JSONObject today){return today==null||today.length()==0?t(c,"관측 대기","Waiting for observations"):today.optBoolean("active")?grade(c,today.optInt("grade")):today.optBoolean("measured")?t(c,"관측 증가 없음","No observed increase"):t(c,"기록 수집 중","Collecting observations");}
+    static String recordStatus(Context c, LocalDate date, LocalDate today, JSONObject row) {
+        if (date.isAfter(today)) return t(c, "예정", "Upcoming");
+        if (date.isBefore(today)) {
+            if (row == null) return t(c, "관측 자료 없음", "No observations");
+            if (!row.optBoolean("active") && !row.optBoolean("measured")) {
+                return t(c, "비교 자료 부족", "Too few comparable observations");
+            }
+        }
+        return status(c, row);
+    }
+    static String observedIncrease(Context c, JSONObject row) {
+        double points = row.optDouble("points", 0);
+        if (!row.optBoolean("measured") && points <= 0) {
+            return t(c, "증가량을 계산할 비교 관측이 없어요.", "No comparable observations for an increase.");
+        }
+        return t(c, "관측 증가량 %s%%p", "Observed increase %s percentage points", UsagePrecision.number(points));
+    }
+    static String personalReference(Context c, JSONObject row) {
+        double reference = row.optDouble("reference");
+        if (reference > 0) {
+            return t(c, "이 날의 개인 기준 %s%%p", "Personal reference for this date: %s percentage points", UsagePrecision.number(reference));
+        }
+        return t(c, "이 날은 개인 기준이 없어요. 최근 28일 중 같은 한도에서 증가가 확인된 날이 7일 필요해요.",
+                "No personal reference for this date. At least 7 days with an observed increase under the same quota policy in the previous 28 days are required.");
+    }
     static String name(Context c,String id){boolean ko=BetaCopy.ko(c);String user=BetaIdentity.name(c);
         switch(id){case "medal.days7":return t(c,"달력에 남긴 일곱 날","Seven recorded days");case "medal.month1":return t(c,"나의 첫 황금달","My first gold month");case "medal.month3":return t(c,"세 달에 새긴 금빛","Three gold months");case "medal.title1":return ko?"금빛 달력을 펼친 "+user:user+", Keeper of a Gold Calendar";case "medal.title3":return ko?"활동의 금빛을 석 달 모은 "+user:user+", Collector of Three Gold Activity Months";default:return "";}}
     static String equippedTitle(Context c,String fallback){JSONObject summary=BetaMedalStore.peek(c);String id=summary==null?"":summary.optString("equipped");return id.isEmpty()?fallback:name(c,id);}
@@ -36,15 +62,16 @@ final class BetaMedalUi {
     static void day(AppCompatActivity a,String date,JSONObject row,boolean dark){day(a,date,row,dark,SubscriptionStore.accountKey(a));}
     static void day(AppCompatActivity a,String date,JSONObject row,boolean dark,String expected){
         if(!java.util.Objects.equals(expected,SubscriptionStore.accountKey(a)))return;
-        LinearLayout body=content(a);body.addView(BetaUi.title(a,status(a,row),dark));
+        LinearLayout body=content(a);
+        body.addView(BetaUi.title(a,recordStatus(a,LocalDate.parse(date),BetaV4.day(System.currentTimeMillis()),row),dark));
         if(TrialDemo.active(a))body.addView(BetaUi.note(a,BetaCopy.t(a,"demo"),dark));
         if(row!=null){
-            body.addView(BetaUi.body(a,t(a,"관측 증가량 %s%%p","Observed increase %s percentage points",UsagePrecision.number(row.optDouble("points"))),dark));
-            if(row.optBoolean("mixed"))body.addView(BetaUi.note(a,t(a,"한도 기준이 바뀐 날 · 기존 메달 보존, 추가 등급 계산 중지","Quota policy changed · earned medal retained; further grading paused today"),dark));
-            if(row.optBoolean("uncertain"))body.addView(BetaUi.note(a,t(a,"관측 보정 감지 · 기존 메달 보존, 오늘 추가 평가 보류","Observation correction detected · earned medal retained; further grading paused today"),dark));
+            body.addView(BetaUi.body(a,observedIncrease(a,row),dark));
+            if(row.optBoolean("mixed"))body.addView(BetaUi.note(a,t(a,"한도 기준이 바뀐 날 · 기존 메달 보존, 추가 등급 계산 중지","Quota policy changed · earned medal retained; further grading paused for this date"),dark));
+            if(row.optBoolean("uncertain"))body.addView(BetaUi.note(a,t(a,"관측 보정 감지 · 기존 메달 보존, 해당 날짜 추가 평가 보류","Observation correction detected · earned medal retained; further grading paused for this date"),dark));
             body.addView(BetaUi.row(a,t(a,"기록 상세","Record details"),"",dark,()->{
                 LinearLayout details=content(a);details.addView(BetaUi.body(a,t(a,"관측 %d회 · %s","%d observations · %s",row.optInt("samples"),row.optString("policy")),dark));
-                details.addView(BetaUi.note(a,t(a,"본인의 과거 관측 기준 %s%%p · 최소7일 필요. 토큰 수·업무 성과·전체 사용량이 아닙니다.","Personal observed reference %s percentage points · at least 7 prior days required. Not token counts, work quality or complete usage.",UsagePrecision.number(row.optDouble("reference"))),dark));
+                details.addView(BetaUi.note(a,personalReference(a,row),dark));
                 details.addView(BetaUi.note(a,t(a,"첫 관측 %s\n최근 관측 %s","First observed %s\nLast observed %s",V3Display.time(row.optLong("first")),V3Display.time(row.optLong("last"))),dark));
                 if(row.optBoolean("restored"))details.addView(BetaUi.note(a,t(a,"백업에서 보존된 기록","Record retained from backup"),dark));show(a,date,details,expected);
             }));

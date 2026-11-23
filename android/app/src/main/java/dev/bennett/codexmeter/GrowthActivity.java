@@ -45,7 +45,7 @@ public final class GrowthActivity extends AppCompatActivity {
         if(content.getChildCount()==0)content.addView(LedgerUi.caption(this,getString(R.string.next_loading),dark));
         WORKER.execute(()->{JSONObject journal=null;java.util.List<String> unlocks=java.util.Collections.emptyList();boolean failed=false;
             try{journal=RpgProgressStore.export(getApplicationContext(),account);unlocks=RpgShowcase.observe(getApplicationContext(),account,journal==null?null:journal.optJSONObject("rpg"));}catch(Exception e){failed=true;}
-            try{JSONObject beta=BetaGrowthStore.load(this,account);if(beta!=null){if(journal==null)journal=new JSONObject();journal.put("beta_v4",beta).put("beta_reward_notice",BetaGrowthStore.acknowledge(this,account));}}catch(Exception unavailable){failed=true;}
+            try{JSONObject beta=BetaGrowthStore.load(this,account);if(beta!=null){if(journal==null)journal=new JSONObject();journal.put("beta_v4",beta);}}catch(Exception unavailable){failed=true;}
             final BetaGrowthModel presentation=failed?null:BetaGrowthModel.create(journal,account,System.currentTimeMillis(),AppPreferences.getAutomaticRefresh(this),!AppPreferences.getLastError(this).isEmpty()||getSharedPreferences("beta_growth_display_v4",0).getBoolean(account+":error",false),TrialDemo.active(this));
             final JSONObject result=journal;final boolean error=failed;final java.util.List<String> earned=unlocks;
             runOnUiThread(()->{if(isDestroyed()||isFinishing()||ticket!=generation)return;busy=false;

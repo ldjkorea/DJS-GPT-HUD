@@ -23,7 +23,7 @@ final class BetaGrowthUi {
         hero.addView(BetaUi.note(a,BetaCopy.t(a,"to_level",LedgerUi.number(Math.max(0,s.optLong("next_cost")-s.optLong("progress")))),dark));Ui.addSpacer(hero,10);
         ProgressBar xp=Ui.progress(a,dark);xp.setMax((int)s.optLong("next_cost"));xp.setProgress((int)s.optLong("progress"));xp.setProgressTintList(android.content.res.ColorStateList.valueOf(BetaUi.accent(a,dark)));xp.setContentDescription(BetaCopy.t(a,"xp")+" "+s.optLong("progress")+" / "+s.optLong("next_cost"));hero.addView(xp);
         hero.addView(BetaUi.note(a,LedgerUi.number(s.optLong("progress"))+" / "+LedgerUi.number(s.optLong("next_cost"))+" "+BetaCopy.t(a,"xp"),dark));
-        long fresh=journal.optLong("beta_reward_notice");if(fresh>0){TextView notice=BetaUi.note(a,BetaCopy.t(a,"reward_summary",LedgerUi.number(fresh)),dark);notice.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);hero.addView(notice);}
+        rewardNotice(a, hero, state, account, dark);
         LinearLayout missions=BetaUi.group(parent,BetaCopy.t(a,"missions"),dark);missions.setTag("beta:challenges");
         int period=a.getIntent().getIntExtra("beta_period",0);LinearLayout tabs=new LinearLayout(a);boolean vertical=a.getResources().getConfiguration().fontScale>1.6f;tabs.setOrientation(vertical?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
         String[] names={"daily","weekly","monthly"};for(int i=0;i<3;i++){final int index=i;Button tab=BetaUi.action(a,BetaCopy.t(a,names[i]),i==period,dark,()->{a.getIntent().putExtra("beta_period",index);a.load(true);});tab.setPadding(Ui.dp(a,8),Ui.dp(a,10),Ui.dp(a,8),Ui.dp(a,10));tab.setTag("beta995:period:"+i);tab.setSelected(i==period);androidx.core.view.ViewCompat.setStateDescription(tab,i==period?a.getString(R.string.matte_selected):"");LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(vertical?-1:0,-2,vertical?0:1);if(i>0){if(vertical)lp.topMargin=Ui.dp(a,6);else lp.setMarginStart(Ui.dp(a,6));}tabs.addView(tab,lp);}missions.addView(tabs);Ui.addSpacer(missions,12);
@@ -42,6 +42,40 @@ final class BetaGrowthUi {
         View medals=BetaUi.row(a,BetaCopy.t(a,"honors"),"",dark,()->catalog(a,state,dark,false,0,account));medals.setTag("beta:honors");collection.addView(medals);
         View titles=BetaUi.row(a,BetaCopy.t(a,"titles"),equipped.isEmpty()?BetaCopy.t(a,"no_title"):BetaIdentity.title(a,equipped),dark,()->catalog(a,state,dark,true,0,account));titles.setTag("beta:wardrobe");collection.addView(titles);
         collection.addView(BetaUi.row(a,BetaCopy.t(a,"rules"),"",dark,()->rules(a,state,dark,account)));collection.addView(BetaUi.row(a,BetaCopy.t(a,"tier"),"",dark,()->tier(a,journal,account)));collection.addView(BetaUi.row(a,BetaCopy.t(a,"share"),"",dark,()->a.startActivity(new Intent(a,BetaProfileActivity.class))));return true;
+    }
+    private static void rewardNotice(GrowthActivity a, LinearLayout hero, JSONObject state, String account, boolean dark) {
+        long displayedTotal = state.optLong("total");
+        long fresh = displayedTotal - state.optLong("seen_total");
+        if (fresh <= 0) return;
+        TextView notice = BetaUi.note(a, BetaCopy.t(a, "reward_summary", LedgerUi.number(fresh)), dark);
+        notice.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        notice.setTag("growth:recent-rewards");
+        class Receipt implements ViewTreeObserver.OnDrawListener, View.OnAttachStateChangeListener {
+            final android.graphics.Rect visible = new android.graphics.Rect();
+            boolean submitted;
+            @Override public void onViewAttachedToWindow(View v) {
+                v.getViewTreeObserver().addOnDrawListener(this);
+            }
+            @Override public void onViewDetachedFromWindow(View v) {
+                v.getViewTreeObserver().removeOnDrawListener(this);
+            }
+            @Override public void onDraw() {
+                if (submitted || !notice.hasWindowFocus() || !notice.isShown() || !notice.getGlobalVisibleRect(visible)
+                        || visible.height() < notice.getHeight()) return;
+                submitted = true;
+                notice.post(() -> {
+                    if (notice.isAttachedToWindow()) notice.getViewTreeObserver().removeOnDrawListener(this);
+                    notice.removeOnAttachStateChangeListener(this);
+                    Context context = a.getApplicationContext();
+                    BetaGrowthStore.WORKER.execute(() -> {
+                        try { BetaGrowthStore.acknowledge(context, account, displayedTotal); }
+                        catch (Exception unavailable) { /* An unread receipt will be shown again on the next visit. */ }
+                    });
+                });
+            }
+        }
+        notice.addOnAttachStateChangeListener(new Receipt());
+        hero.addView(notice);
     }
     static View link(GrowthActivity a,String label,boolean dark,Runnable run){return BetaUi.row(a,label,"",dark,run);}
     static String time(android.content.Context c,long at){return java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.SHORT).withLocale(c.getResources().getConfiguration().getLocales().get(0)).withZone(BetaV4.ZONE).format(java.time.Instant.ofEpochMilli(at));}

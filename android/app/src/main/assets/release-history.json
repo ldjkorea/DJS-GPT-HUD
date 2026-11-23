@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.1.10",
+    "date": "2026-11-24",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.10",
+    "origin": "korean",
+    "ko": {
+      "title": "남은 한도와 다음 메달이 한눈에",
+      "changes": [
+        "홈에서 티어와 레벨을 함께 보고, 5시간·주간 한도의 초기화 시각을 쉽게 찾을 수 있습니다.",
+        "기록을 열면 이번 주 메달이 날짜별로 보입니다. 날짜를 누르면 상세 기록을, ‘한 달 모아보기’를 누르면 월간 기록을 볼 수 있습니다.",
+        "성장에서 다음 메달까지 남은 활동일을 확인할 수 있습니다. AI의 한마디에서 ‘한 수 써먹기’를 열면 복사할 프롬프트가 먼저 보입니다."
+      ]
+    },
+    "en": {
+      "title": "See your remaining limits and your next medal at a glance",
+      "changes": [
+        "See your tier and level together and find the exact reset time for each usage limit on Home.",
+        "Records opens on this week’s medals. Tap a date for details or open the monthly view.",
+        "Growth shows how many active days remain until your next medal. Open a coach tip to see its copyable prompt first."
+      ]
+    }
+  },
+  {
     "version": "3.1.9",
     "date": "2026-10-28",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.9",

@@ -29,11 +29,11 @@ final class BetaMedalStore extends SQLiteOpenHelper {
         try{JSONObject data=new JSONObject(c.getSharedPreferences(CACHE,0).getString(account,""));return account.equals(data.optString("account"))&&BetaV4.day(System.currentTimeMillis()).toString().equals(data.optString("date"))?data:null;}catch(Exception missing){return null;}}
     static boolean failed(Context c){String account=SubscriptionStore.accountKey(c);return account!=null&&c.getSharedPreferences(CACHE,0).getBoolean(account+":error",false);}
     static void refresh(Context context){Context c=context.getApplicationContext();String account=SubscriptionStore.accountKey(c);if(account==null)return;
-        WORKER.execute(()->{try{load(c,account);}catch(Exception unavailable){error(c,account);}});}
+        WORKER.execute(()->{try{load(c,account);}catch(Exception unavailable){markFailed(c,account,true);}});}
     static void response(Context c,String account,UsageSnapshot snapshot){
         JSONObject growth=BetaGrowthStore.peek(c);
         if(TrialDemo.active(c)||growth==null||!growth.optBoolean("enabled")||!BetaGrowthStore.current(c,account))return;
-        try{record(c,account,snapshot,false);}catch(Exception unavailable){error(c,account);}
+        try{record(c,account,snapshot,false);}catch(Exception unavailable){markFailed(c,account,true);}
     }
     static boolean record(Context c,String account,UsageSnapshot snapshot,boolean demo)throws Exception {
         workerOnly();if(!BetaGrowthStore.current(c,account)||demo!=TrialDemo.active(c)||snapshot==null)return false;
@@ -51,14 +51,27 @@ final class BetaMedalStore extends SQLiteOpenHelper {
             if(changed)publish(c,account,state);return changed;
         }}
     }
-    private static void error(Context c,String account){if(BetaGrowthStore.current(c,account))c.getSharedPreferences(CACHE,0).edit().putBoolean(account+":error",true).apply();}
+    private static void markFailed(Context c, String account, boolean notify) {
+        synchronized (LOCK) {
+            if (!BetaGrowthStore.current(c, account)) return;
+            SharedPreferences prefs = c.getSharedPreferences(CACHE, 0);
+            if (prefs.getBoolean(account + ":error", false)) return;
+            prefs.edit().putBoolean(account + ":error", true).apply();
+            if (notify) c.sendBroadcast(new Intent(AppConstants.ACTION_USAGE_UPDATED).setPackage(c.getPackageName()));
+        }
+    }
     static void publish(Context c,String account,JSONObject state)throws Exception {
         if(!BetaGrowthStore.current(c,account))return;
         android.content.SharedPreferences prefs=c.getSharedPreferences(CACHE,0);
         String value=state==null?null:BetaMedalModel.summary(state,System.currentTimeMillis()).toString();
-        if(java.util.Objects.equals(value,prefs.getString(account,null))&&!prefs.getBoolean(account+":error",false))return;
+        boolean wasFailed = prefs.getBoolean(account+":error",false);
+        if(java.util.Objects.equals(value,prefs.getString(account,null))&&!wasFailed)return;
         android.content.SharedPreferences.Editor edit=prefs.edit().remove(account+":error");if(value==null)edit.remove(account);else edit.putString(account,value);
-        if(!edit.commit()){error(c,account);throw new java.io.IOException("Medal cache failed; ledger retained");}
+        if(!edit.commit()){
+            // commit() can have cleared the in-memory flag even when the disk write failed.
+            markFailed(c,account,!wasFailed);
+            throw new java.io.IOException("Medal cache failed; ledger retained");
+        }
         if(BetaGrowthStore.current(c,account))c.sendBroadcast(new Intent(AppConstants.ACTION_USAGE_UPDATED).setPackage(c.getPackageName()));
     }
     static JSONObject export(Context c,String account)throws Exception {JSONObject value=load(c,account);return value==null?null:new JSONObject(value.toString());}

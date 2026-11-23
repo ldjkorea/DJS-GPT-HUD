@@ -125,7 +125,27 @@ final class BetaGrowthStore extends SQLiteOpenHelper {
             }finally{db.endTransaction();}}publish(c,account,result);return true;
         }}
     }
-    static long acknowledge(Context c,String account)throws Exception{
-        if(!current(c,account)||!c.getDatabasePath(NAME).exists())return 0;synchronized(LOCK){try(BetaGrowthStore helper=new BetaGrowthStore(c)){SQLiteDatabase db=helper.getWritableDatabase();db.beginTransaction();try{JSONObject state=row(db,account);if(state==null)return 0;long delta=Math.max(0,state.getLong("total")-state.optLong("seen_total"));state.put("seen_total",state.getLong("total"));db.execSQL("UPDATE profiles SET document=? WHERE account=?",new Object[]{state.toString(),account});db.setTransactionSuccessful();return delta;}finally{db.endTransaction();}}}
+    static long acknowledge(Context c, String account, long displayedTotal) throws Exception {
+        synchronized (UsageApi.NETWORK_LOCK) {
+            if (!current(c, account) || !c.getDatabasePath(NAME).exists()) return 0;
+            synchronized (LOCK) {
+                try (BetaGrowthStore helper = new BetaGrowthStore(c)) {
+                    SQLiteDatabase db = helper.getWritableDatabase();
+                    db.beginTransaction();
+                    try {
+                        JSONObject state = row(db, account);
+                        if (state == null || displayedTotal > state.getLong("total")) return 0;
+                        long seen = state.optLong("seen_total");
+                        if (displayedTotal <= seen) return 0;
+                        state.put("seen_total", displayedTotal);
+                        db.execSQL("UPDATE profiles SET document=? WHERE account=?", new Object[]{state.toString(), account});
+                        db.setTransactionSuccessful();
+                        return displayedTotal - seen;
+                    } finally {
+                        db.endTransaction();
+                    }
+                }
+            }
+        }
     }
 }

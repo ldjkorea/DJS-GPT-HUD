@@ -1,6 +1,13 @@
 package dev.bennett.codexmeter;
 
 import android.content.res.ColorStateList;
+import android.graphics.Typeface;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
+import android.view.Gravity;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -14,7 +21,7 @@ final class BetaQuotaUi {
             boolean dark, List<Runnable> clockUpdates) {
         LinearLayout card = BetaUi.group(parent,
                 BetaExperienceUi.t(activity, "남은 사용 한도", "Remaining limits"), dark);
-        fill(activity,card,snapshot,dark,clockUpdates,true);
+        fill(activity,card,snapshot,dark,clockUpdates,true,null);
         Ui.addSpacer(parent,16);
     }
 
@@ -22,15 +29,15 @@ final class BetaQuotaUi {
             boolean dark,List<Runnable> clockUpdates){
         LinearLayout section=new LinearLayout(activity);section.setOrientation(LinearLayout.VERTICAL);
         parent.addView(section,new LinearLayout.LayoutParams(-1,-2));
-        fill(activity,section,snapshot,dark,clockUpdates,true);
         String expected=SubscriptionStore.accountKey(activity);
-        section.addView(BetaUi.row(activity,BetaMedalUi.t(activity,"한도·내 상태 상세","Limits and status details"),"",dark,()->BetaHomeDetailsUi.show(activity,snapshot,dark,expected)));
+        fill(activity,section,snapshot,dark,clockUpdates,true,
+                () -> BetaHomeDetailsUi.show(activity,snapshot,dark,expected));
     }
 
-    static void details(MainActivity activity,LinearLayout parent,UsageSnapshot snapshot,boolean dark){fill(activity,parent,snapshot,dark,new java.util.ArrayList<>(),false);}
+    static void details(MainActivity activity,LinearLayout parent,UsageSnapshot snapshot,boolean dark){fill(activity,parent,snapshot,dark,new java.util.ArrayList<>(),false,null);}
 
     private static void fill(MainActivity activity,LinearLayout card,UsageSnapshot snapshot,
-            boolean dark,List<Runnable> clockUpdates,boolean compact){
+            boolean dark,List<Runnable> clockUpdates,boolean compact,Runnable onDetails){
         card.setTag("beta998:quota");
         if (!compact && TrialDemo.active(activity)) card.addView(BetaUi.note(activity,
                 BetaExperienceUi.t(activity, "가상 데모 · 실제 계정 한도 아님",
@@ -44,15 +51,35 @@ final class BetaQuotaUi {
                 true, dark, stacked, clockUpdates,compact);
         addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.weekly,
                 false, dark, stacked, clockUpdates,compact);
+        if (snapshot == null && onDetails == null) return;
+        LinearLayout footer=new LinearLayout(activity);
+        footer.setGravity(Gravity.CENTER_VERTICAL);
+        footer.setOrientation(stacked?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams footerParams=new LinearLayout.LayoutParams(-1,-2);
+        footerParams.topMargin=Ui.dp(activity,8);
+        card.addView(footer,footerParams);
         if (snapshot != null) {
-            Ui.addSpacer(card, 8);
-            TextView observed=BetaUi.note(activity,"",dark);observed.setTag("home:quota-observed");card.addView(observed);
+            TextView observed=BetaUi.note(activity,"",dark);
+            observed.setTextSize(13);
+            observed.setTag("home:quota-observed");
+            footer.addView(observed,new LinearLayout.LayoutParams(stacked?-1:0,-2,stacked?0:1));
             Runnable common=()->{
                 String text=BetaExperienceUi.t(activity,"마지막 확인 · %s","Last checked · %s",UsageFormat.absolute(activity,snapshot.fetchedAtMillis,System.currentTimeMillis()));
                 UsageEvidence.State state=commonState(activity,snapshot);
-                if(compact&&state!=null)text+=" · "+activity.getString(statusResource(state));
+                if(compact&&state!=null)text+="\n"+activity.getString(statusResource(state));
                 observed.setText(text);
             };clockUpdates.add(common);common.run();
+        }
+        if(onDetails!=null){
+            Button details=BetaUi.action(activity,BetaExperienceUi.t(activity,"한도 상세","Limit details"),false,dark,onDetails);
+            details.setTag("home:quota-details");
+            details.setContentDescription(BetaExperienceUi.t(activity,"한도·내 상태 상세","Limits and status details"));
+            details.setTextSize(14);
+            details.setPadding(Ui.dp(activity,10),0,Ui.dp(activity,10),0);
+            android.util.TypedValue ripple=new android.util.TypedValue();
+            activity.getTheme().resolveAttribute(android.R.attr.selectableItemBackground,ripple,true);
+            if(ripple.resourceId!=0)details.setBackgroundResource(ripple.resourceId);
+            footer.addView(details,new LinearLayout.LayoutParams(-2,-2));
         }
     }
 
@@ -70,13 +97,14 @@ final class BetaQuotaUi {
         }
         parent.addView(column, params);
         String label = BetaExperienceUi.t(activity,
-                fiveHour ? "5시간 한도 · 남음" : "주간 한도 · 남음",
+                fiveHour ? "5시간 한도 남음" : "주간 한도 남음",
                 fiveHour ? "5-hour remaining" : "Weekly remaining");
         TextView heading=BetaUi.text(activity,label,14,Ui.secondaryText(dark),false);
         column.addView(heading);
         TextView value = BetaUi.text(activity, window == null ? "—"
                 : UsagePrecision.remaining(window, AppPreferences.usageDecimalPlaces(activity)),
                 32, Ui.mainText(dark), true);
+        value.setFontFeatureSettings("tnum");
         value.setTag("beta998:quota:" + key + ":value");
         value.setContentDescription(label + ": " + value.getText());
         column.addView(value);
@@ -84,6 +112,7 @@ final class BetaQuotaUi {
         progress.setMax(100000);
         progress.setProgress(window == null ? 0 : (int) Math.round((100 - window.preciseUsedPercent) * 1000));
         progress.setProgressTintList(ColorStateList.valueOf(Ui.accent(activity, dark)));
+        progress.setProgressBackgroundTintList(ColorStateList.valueOf(dark?0xff454b53:0xffccd1d8));
         progress.setVisibility(window == null ? android.view.View.GONE : android.view.View.VISIBLE);
         progress.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         column.addView(progress, new LinearLayout.LayoutParams(-1, Ui.dp(activity, 6)));
@@ -116,9 +145,18 @@ final class BetaQuotaUi {
             status.setVisibility(state==UsageEvidence.State.CONFIRMED||compact&&state==commonState(activity,snapshot)?android.view.View.GONE:android.view.View.VISIBLE);
             long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
             if (resetAt > now) {
-                reset.setText(activity.getString(R.string.home_quota_reset_schedule,
-                        UsageFormat.absolute(activity, resetAt, now),
-                        UsageFormat.compactDuration(activity, resetAt - now)));
+                String absolute=UsageFormat.absolute(activity,resetAt,now);
+                String schedule=activity.getString(R.string.home_quota_reset_schedule,absolute,
+                        UsageFormat.compactDuration(activity,resetAt-now));
+                if(!schedule.contentEquals(reset.getText())){
+                    SpannableString styled=new SpannableString(schedule);
+                    int start=schedule.indexOf(absolute);
+                    if(start>=0){
+                        styled.setSpan(new ForegroundColorSpan(Ui.mainText(dark)),start,start+absolute.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                        styled.setSpan(new StyleSpan(Typeface.BOLD),start,start+absolute.length(),Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    }
+                    reset.setText(styled);
+                }
                 return;
             }
             if(compact){
