@@ -2,11 +2,17 @@ package dev.bennett.codexmeter;
 
 import android.app.Instrumentation;
 import android.app.Activity;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.app.LocaleManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,6 +22,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.view.inspector.WindowInspector;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -25,7 +32,9 @@ import java.util.Objects;
 import java.util.LinkedHashMap;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /** Capture the production home with a fresh local observation on a signed-in synthetic preview. */
@@ -103,9 +112,15 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
         if(reason==null && coach==null){
             SpicyQuotes.Selection current=SpicyQuotes.peek(a,account);
             Context app=a.getApplicationContext();
+            String chosen="unread";
+            try {
+                JSONObject state=new JSONObject(a.getSharedPreferences("coach_v2",0).getString(account,"{}"));
+                String stamp=state.optString("stamp","");
+                chosen=state.optString("current","none")+"/"+stamp.substring(stamp.lastIndexOf(':')+1);
+            } catch(org.json.JSONException ignored) { }
             return "coach absent; card="+(body.findViewWithTag("beta9911:coach")!=null)
                     +", tier="+(body.findViewWithTag("beta996:tier-badge")!=null)
-                    +", tone="+CoachPolicy.tone(a)+", selected="+(current!=null)
+                    +", tone="+CoachPolicy.tone(a)+", selected="+(current!=null)+", stored="+chosen
                     +", locales="+a.getResources().getConfiguration().getLocales().toLanguageTags()
                     +"/"+app.getResources().getConfiguration().getLocales().toLanguageTags()
                     +", same identity="+SpicyQuotes.identity(a,account).equals(SpicyQuotes.identity(app,account));
@@ -141,7 +156,9 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
         }
         require(!byGroup.isEmpty(),"Bundled linked examples required");
         JSONArray hidden=new JSONArray();
-        for(CoachCatalog.Quote quote:catalog.quotes)if(quote!=byGroup.get(quote.group))hidden.put(quote.id);
+        for(CoachCatalog.Quote quote:catalog.quotes){
+            if(!CoachCatalog.constrained(quote.group)&&quote!=byGroup.get(quote.group))hidden.put(quote.id);
+        }
         JSONObject state=catalog.migrate(new JSONObject()).put("hidden",hidden);
         require(c.getSharedPreferences("coach_v2",0).edit().putString(account,state.toString()).commit(),
                 "Synthetic linked examples saved");
@@ -153,14 +170,148 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
         if(error[0]!=null)throw new AssertionError(error[0]);
     }
 
-    private void screenshot(Context c,String name) throws Exception{
-        Bitmap screen=getUiAutomation().takeScreenshot();
-        require(screen!=null,"System screenshot available");
+    private static ExecutorService homeWorker() throws ReflectiveOperationException {
+        java.lang.reflect.Field worker=FunHome.class.getDeclaredField("WORKER");
+        worker.setAccessible(true);
+        return (ExecutorService)worker.get(null);
+    }
+
+    private void replacePendingCoachTarget(MainActivity home,String account) throws Exception {
+        String original=BetaIdentity.name(home);
+        require("해솔".equals(original),"Expected original fixture name");
+        String observation=SpicyQuotes.identity(home,account);
+        CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+        Future<?> barrier=homeWorker().submit(()->{
+            entered.countDown();
+            if(!release.await(15,TimeUnit.SECONDS))throw new AssertionError("Home worker gate expired");
+            return null;
+        });
+        try{
+            require(entered.await(8,TimeUnit.SECONDS),"Home worker gate entered");
+            // Give the settled home a cold coach selection, then hold this same input across both rebuilds.
+            SpicyQuotes.manual();
+            for(String name:new String[]{"솔이",original}){
+                ui(()->{
+                    ViewGroup body=home.findViewById(R.id.dashboard_content);
+                    View prior=body.findViewWithTag("beta999:identity-slot");
+                    BetaIdentity.save(home,name);
+                    home.rebuild();
+                    View current=body.findViewWithTag("beta999:identity-slot");
+                    TextView label=current==null?null:current.findViewWithTag("beta996:name");
+                    require(prior!=null&&!prior.isAttachedToWindow()&&current!=null&&current.isAttachedToWindow()
+                            &&label!=null&&name.contentEquals(label.getText()),"Profile rebuild replaced the visible target");
+                });
+                waitForIdleSync(); // Let the attached target post its work before it can be replaced.
+                ui(()->require(home.findViewById(R.id.dashboard_content).findViewWithTag("home:coach-text")==null
+                        &&account.equals(SubscriptionStore.accountKey(home))&&observation.equals(SpicyQuotes.identity(home,account)),
+                        "Same account and observation awaiting its coach"));
+            }
+        }finally{
+            release.countDown();
+        }
+        barrier.get(5,TimeUnit.SECONDS);
+    }
+
+    private void saveFrame(Context c,String name,Bitmap screen) throws Exception{
         File directory=new File(c.getExternalFilesDir(null),"home-design");
         require(directory.isDirectory()||directory.mkdirs(),"Screenshot directory");
         try(FileOutputStream output=new FileOutputStream(new File(directory,name+".png"))){
             require(screen.compress(Bitmap.CompressFormat.PNG,100,output),"Screenshot saved");
-        }finally{screen.recycle();}
+        }
+    }
+
+    private void screenshot(Context c,String name) throws Exception{
+        Bitmap screen=getUiAutomation().takeScreenshot();
+        require(screen!=null,"System screenshot available");
+        try{saveFrame(c,name,screen);}finally{screen.recycle();}
+    }
+
+    /** Positions of opaque glyph pixels in a rendered view, mapped to physical screen coordinates. */
+    private static final class FrameInk {
+        final String name;
+        final int color;
+        final int[] screen=new int[2];
+        final List<Integer> samples=new ArrayList<>();
+        FrameInk(View view,String name,int color){
+            this.name=name;this.color=color;
+            view.getLocationOnScreen(screen);
+            Rect visible=new Rect();
+            if(!view.getLocalVisibleRect(visible)||view.getWidth()==0||view.getHeight()==0)return;
+            Bitmap ref=Bitmap.createBitmap(view.getWidth(),view.getHeight(),Bitmap.Config.ARGB_8888);
+            try{
+                view.draw(new Canvas(ref));
+                for(int y=Math.max(0,visible.top);y<Math.min(ref.getHeight(),visible.bottom);y++)
+                    for(int x=Math.max(0,visible.left);x<Math.min(ref.getWidth(),visible.right);x++){
+                        int pixel=ref.getPixel(x,y);
+                        if(Color.alpha(pixel)>=245&&near(pixel,color,6))samples.add((y<<16)|x);
+                    }
+            }finally{ref.recycle();}
+        }
+        static boolean near(int a,int b,int margin){
+            return Math.abs(Color.red(a)-Color.red(b))<=margin&&Math.abs(Color.green(a)-Color.green(b))<=margin
+                    &&Math.abs(Color.blue(a)-Color.blue(b))<=margin;
+        }
+        String mismatch(Bitmap frame){
+            if(samples.size()<8)return name+" insufficient visible reference ink ("+samples.size()+")";
+            int matched=0;
+            for(int xy:samples){
+                int x=screen[0]+(xy&65535),y=screen[1]+(xy>>>16);
+                // The software reference and compositor can differ by a subpixel on antialiased edges.
+                boolean found=false;
+                for(int py=Math.max(0,y-1);!found&&py<=Math.min(frame.getHeight()-1,y+1);py++)
+                    for(int px=Math.max(0,x-1);px<=Math.min(frame.getWidth()-1,x+1);px++)
+                        if(near(frame.getPixel(px,py),color,9)){found=true;break;}
+                if(found)matched++;
+            }
+            return matched*100>=samples.size()*80?null:name+" matched "+matched+"/"+samples.size()+" physical pixels";
+        }
+    }
+
+    private MainActivity captureVerifiedHome(Context c,String name,UsageSnapshot sample,String account) throws Exception{
+        String reason="awaiting rendered home";
+        long deadline=SystemClock.elapsedRealtime()+20000;
+        do{
+            waitForIdleSync();
+            MainActivity home=activeHome;
+            List<FrameInk> inks=new ArrayList<>();
+            String[] pendingFrame={null};
+            ui(()->{
+                pendingFrame[0]=pending(home,sample,account);
+                if(pendingFrame[0]!=null)return;
+                ViewGroup content=home.findViewById(R.id.dashboard_content);
+                ImageView badge=content.findViewWithTag("beta996:tier-badge");
+                TextView quote=content.findViewWithTag("home:coach-text");
+                ViewGroup card=content.findViewWithTag("beta9911:coach");
+                if(badge==null||!(card.getChildAt(0) instanceof ViewGroup)){pendingFrame[0]="missing home badge or byline";return;}
+                View mark=((ViewGroup)card.getChildAt(0)).getChildAt(0);
+                if(!(mark instanceof ImageView)){pendingFrame[0]="missing coach emblem";return;}
+                boolean dark=Ui.isDark(home);
+                int tier=TierTheme.tier(home);
+                inks.add(new FrameInk(mark,"solar coach emblem",Ui.solar(dark)));
+                inks.add(new FrameInk(quote,"selected coach text",quote.getCurrentTextColor()));
+                inks.add(new FrameInk(badge,"tier crow",tier<0?Ui.secondaryText(dark):0xff10252b));
+                inks.add(new FrameInk(badge,"tier disk",tier<0?Ui.cardColor(home,dark):TierTheme.COLORS[tier]));
+            });
+            reason=pendingFrame[0];
+            if(reason==null){
+                Bitmap screen=getUiAutomation().takeScreenshot();
+                if(screen==null)reason="system screenshot unavailable";
+                else try{
+                    Bitmap frame=screen.getConfig()==Bitmap.Config.HARDWARE?screen.copy(Bitmap.Config.ARGB_8888,false):screen;
+                    try{
+                        for(FrameInk ink:inks){reason=ink.mismatch(frame);if(reason!=null)break;}
+                        if(reason==null&&home==activeHome){
+                            require(inks.size()==4,"Coach emblem, selected text and both tier colors must match");
+                            saveFrame(c,name,frame);
+                            return home;
+                        }
+                        if(reason==null)reason="activity replaced during system capture";
+                    }finally{if(frame!=screen)frame.recycle();}
+                }finally{screen.recycle();}
+            }
+            SystemClock.sleep(190);
+        }while(SystemClock.elapsedRealtime()<deadline);
+        throw new AssertionError("Captured home never matched the visible content: "+reason);
     }
 
     private void captureLinkedTip(MainActivity home,String account) throws Exception {
@@ -208,6 +359,14 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
         Context c=getTargetContext();
         Bundle result=new Bundle();
         List<SavedKey> saved=new ArrayList<>();
+        // This dedicated emulator can retain a fixed refresh job even when adaptive refresh is off.
+        // An attempted fetch with its synthetic token would correctly switch the real UI to error copy.
+        JobScheduler jobs=c.getSystemService(JobScheduler.class);
+        ComponentName refresh=new ComponentName(c,UsageRefreshJobService.class);
+        PackageManager packages=c.getPackageManager();
+        int previousRefreshState=packages.getComponentEnabledSetting(refresh);
+        List<JobInfo> refreshJobs=new ArrayList<>();
+        boolean isolated=false;
         LocaleManager languages=c.getSystemService(LocaleManager.class);
         LocaleList previousLanguages=languages.getApplicationLocales();
         MainActivity activity=null;
@@ -219,6 +378,11 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
             require(!UpdatePreferences.automaticChecks(c)&&!AppPreferences.getRefreshOnLaunch(c)&&!AppPreferences.getAutomaticRefresh(c),
                     "Disable automatic requests on the synthetic fixture before capture");
             require(!c.getSharedPreferences("codex_lan_sync",0).contains(LanSync.account(c))&&!AppPreferences.isOAuthPending(c),"Unpaired fixture with no OAuth in progress required");
+            for(JobInfo job:jobs.getAllPendingJobs())if(refresh.equals(job.getService()))refreshJobs.add(job);
+            packages.setComponentEnabledSetting(refresh,PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
+            isolated=true;
+            for(JobInfo job:refreshJobs)jobs.cancel(job.getId());
             String account=SubscriptionStore.accountKey(c);
             require(account!=null,"Synthetic account namespace required");
             SharedPreferences prefs=c.getSharedPreferences("codex_meter_settings_v1",0);
@@ -234,7 +398,7 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
             long now=System.currentTimeMillis();
             UsageSnapshot sample=new UsageSnapshot("plus",true,false,
                     new UsageWindow(38,18000,0,(now+96*60000L)/1000),
-                    new UsageWindow(19,604800,0,(now+3*86400000L)/1000),now);
+                    new UsageWindow(19,604800,0,(now+3*86400000L)/1000),now-60_000L);
             require(AppPreferences.saveSnapshot(c,sample),"Fresh fixture cached");
             require(FunStore.tone(c,"spicy"),"Built-in coach enabled");
             BetaIdentity.save(c,"해솔");
@@ -252,7 +416,8 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
             MainActivity home=activeHome;
             require(Ui.isDark(home)==theme.equals("dark"),"Actual home theme");
             require(home.getResources().getConfiguration().getLocales().get(0).getLanguage().equals(locale),"Actual home locale");
-            screenshot(c,(coachExample?"coach-home-":"home-")+locale+"-"+theme);
+            if(coachExample)replacePendingCoachTarget(home,account);
+            home=captureVerifiedHome(c,(coachExample?"coach-home-":"home-")+locale+"-"+theme,sample,account);
             if(coachExample)captureLinkedTip(home,account);
         }catch(Throwable problem){error=problem;}
         finally{
@@ -262,9 +427,7 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
                     runOnMainSync(home::finish);
                     waitForIdleSync();
                     // The normal home can queue more than one selection while it attaches.
-                    java.lang.reflect.Field worker=FunHome.class.getDeclaredField("WORKER");
-                    worker.setAccessible(true);
-                    ((ExecutorService)worker.get(null)).submit(()->{}).get(20,TimeUnit.SECONDS);
+                    homeWorker().submit(()->{}).get(20,TimeUnit.SECONDS);
                 }
             }catch(Throwable cleanup){if(error==null)error=cleanup;else error.addSuppressed(cleanup);}
             for(SavedKey setting:saved){
@@ -272,6 +435,11 @@ public final class HomeDesignPreviewNativeTest extends Instrumentation {
             }
             try{
                 if(!languages.getApplicationLocales().equals(previousLanguages))languages.setApplicationLocales(previousLanguages);
+            }catch(Throwable cleanup){if(error==null)error=cleanup;else error.addSuppressed(cleanup);}
+            if(isolated)try{
+                packages.setComponentEnabledSetting(refresh,previousRefreshState,PackageManager.DONT_KILL_APP);
+                for(JobInfo job:refreshJobs)if(jobs.schedule(job)!=JobScheduler.RESULT_SUCCESS)
+                    throw new AssertionError("Synthetic refresh schedule was not restored");
             }catch(Throwable cleanup){if(error==null)error=cleanup;else error.addSuppressed(cleanup);}
         }
         result.putString("stream",error==null?"Home design preview: "+checks+" checks passed; synthetic only; "+locale+" "+theme+"\n":android.util.Log.getStackTraceString(error));
