@@ -6,7 +6,7 @@ final class BetaHomeDetailsUi {
         if(!java.util.Objects.equals(expected,SubscriptionStore.accountKey(a)))return;
         LinearLayout body=BetaMedalUi.content(a);JSONObject growth=BetaGrowthStore.peek(a);
         if(growth!=null)body.addView(BetaUi.body(a,"Lv. "+growth.optInt("level")+" · "+LedgerUi.number(growth.optLong("progress"))+" / "+LedgerUi.number(growth.optLong("next_cost"))+" "+BetaCopy.t(a,"xp"),dark));
-        BetaQuotaUi.details(a,body,snapshot,dark);
+        BetaQuotaUi.details(a,body,dark,expected);
         body.addView(BetaUi.row(a,BetaMedalUi.t(a,"구독·결제 분석","Subscription and billing analysis"),"",dark,()->a.startActivity(new Intent(a,FunActivity.class))));
         body.addView(BetaUi.row(a,BetaMedalUi.t(a,"저장된 인용","Saved excerpt"),"",dark,()->{LinearLayout quote=BetaMedalUi.content(a);TiboQuote.add(a,quote,dark);BetaMedalUi.show(a,BetaMedalUi.t(a,"저장된 인용","Saved excerpt"),quote);}));
         if(TaskStatusStore.enabled(a))body.addView(BetaUi.row(a,BetaMedalUi.t(a,"연결된 작업 상태","Connected task status"),TaskStatusStore.homeText(a),dark,()->a.startActivity(new Intent(a,TaskStatusActivity.class))));

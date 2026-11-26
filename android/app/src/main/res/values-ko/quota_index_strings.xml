@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quota_index_remaining">예상 잔여 지수 · %1$,d / %2$,d</string>
+    <string name="quota_index_used">예상 사용 지수 · %1$,d / %2$,d</string>
+    <string name="quota_index_doubled">%1$s · 2배</string>
+    <string name="quota_week_used">이번 주 사용 · %1$s</string>
+    <string name="quota_month_remaining">월간 한도 남음</string>
+    <string name="quota_month_used">마지막 확인 시 월간 사용 · %1$s</string>
+    <string name="quota_week_last_used">마지막 확인 시 주간 사용 · %1$s</string>
+    <string name="quota_event_switch">예상 지수에 2배 이벤트 적용</string>
+    <string name="quota_index_explanation">Plus 주간 한도를 100으로 둔 비교값입니다. 2배 한도 이벤트 대상이면 켜세요. 직접 끌 때까지 이 계정·요금제의 예상 지수에 2배를 적용합니다.</string>
+</resources>

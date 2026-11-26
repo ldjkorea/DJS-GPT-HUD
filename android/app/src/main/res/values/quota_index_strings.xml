@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quota_index_remaining">Estimated remaining index · %1$,d / %2$,d</string>
+    <string name="quota_index_used">Estimated used index · %1$,d / %2$,d</string>
+    <string name="quota_index_doubled">%1$s · 2×</string>
+    <string name="quota_week_used">Used this week · %1$s</string>
+    <string name="quota_month_remaining">Monthly remaining</string>
+    <string name="quota_month_used">Monthly usage at last check · %1$s</string>
+    <string name="quota_week_last_used">Weekly usage at last check · %1$s</string>
+    <string name="quota_event_switch">Apply 2× event to estimate</string>
+    <string name="quota_index_explanation">The index compares weekly allowances with Plus set to 100. Enable it for a confirmed double-allowance event. The index uses 2× for this account and plan until you turn it off.</string>
+</resources>

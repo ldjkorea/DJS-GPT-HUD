@@ -1,5 +1,25 @@
 [
   {
+    "version": "3.1.12",
+    "date": "2026-11-26",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.12",
+    "origin": "korean",
+    "ko": {
+      "title": "주간 한도를 잔여 지수로 확인",
+      "changes": [
+        "홈에서 주간 잔여율과 예상 잔여 지수를 함께 확인하세요.",
+        "한도 상세에서 예상 사용 지수를 보고 계정·요금제별 2배 이벤트를 설정할 수 있습니다."
+      ]
+    },
+    "en": {
+      "title": "Weekly allowance estimates",
+      "changes": [
+        "See your remaining percentage and estimated weekly index on Home.",
+        "Check your used index in limit details and optionally apply a 2x event for your account and plan."
+      ]
+    }
+  },
+  {
     "version": "3.1.11",
     "date": "2026-11-24",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.11",

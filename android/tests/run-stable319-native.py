@@ -12,12 +12,12 @@ p.add_argument('--long-name',action='store_true')
 p.add_argument('--coach-example',action='store_true',help='Capture a synthetic linked coach tip from the actual Korean home')
 p.add_argument('--output-dir',type=Path,help='Separate results directory for local follow-up checks')
 p.add_argument('--class-name',default='Stable319UiNativeTest',choices=['Stable319UiNativeTest','Stable319ContinuityNativeTest','Stable319PublicUpdateNativeTest','StableAutomaticNoticeNativeTest','HomeQuotaScheduleNativeTest','HomeDesignPreviewNativeTest'])
-p.add_argument('--upgrade-to', choices=['3.1.9','3.1.10','3.1.11'], default='3.1.9')
+p.add_argument('--upgrade-to', choices=['3.1.9','3.1.10','3.1.11','3.1.12'], default='3.1.9')
 a=p.parse_args()
 if a.coach_example and (a.class_name!='HomeDesignPreviewNativeTest' or a.locale!='ko'):
     p.error('--coach-example requires --class-name HomeDesignPreviewNativeTest --locale ko')
 from_name, from_code, to_code = {'3.1.9': ('3.1.8', 95, 96), '3.1.10': ('3.1.9', 96, 97),
-                                 '3.1.11': ('3.1.10', 97, 98)}[a.upgrade_to]
+                                 '3.1.11': ('3.1.10', 97, 98), '3.1.12': ('3.1.11', 98, 99)}[a.upgrade_to]
 to_name = a.upgrade_to
 root=Path(__file__).resolve().parents[1]
 out=a.output_dir or root/'build/stable319/native'
@@ -28,7 +28,7 @@ run=lambda args:subprocess.run(list(map(str,args)),check=True)
 shell=lambda *args:subprocess.check_output([str(adb),'-s',a.serial,'shell',*map(str,args)],encoding='utf-8',timeout=180)
 assert a.serial.startswith('emulator-')
 assert shell('getprop','ro.kernel.qemu').strip()=='1'
-assert shell('getprop','ro.boot.qemu.avd_name').strip() in {'gpthud_stable319','gpthud_stable319_preview','gpthud_stable3110_upgrade','gpthud_stable3111_upgrade'}
+assert shell('getprop','ro.boot.qemu.avd_name').strip() in {'gpthud_stable319','gpthud_stable319_preview','gpthud_stable3110_upgrade','gpthud_stable3111_upgrade','gpthud_stable3112_upgrade'}
 target='dev.bennett.codexmeter';package='dev.bennett.codexmeter.stable319test'
 assert 'package:'+target in shell('pm','list','packages',target).splitlines()
 deps=[];cache=Path.home()/'.gradle/caches/modules-2/files-2.1'

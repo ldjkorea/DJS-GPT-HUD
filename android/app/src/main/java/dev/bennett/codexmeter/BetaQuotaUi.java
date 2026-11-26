@@ -21,7 +21,7 @@ final class BetaQuotaUi {
             boolean dark, List<Runnable> clockUpdates) {
         LinearLayout card = BetaUi.group(parent,
                 BetaExperienceUi.t(activity, "남은 사용 한도", "Remaining limits"), dark);
-        fill(activity,card,snapshot,dark,clockUpdates,true,null);
+        fill(activity,card,snapshot,dark,clockUpdates,true,SubscriptionStore.accountKey(activity),null);
         Ui.addSpacer(parent,16);
     }
 
@@ -30,14 +30,22 @@ final class BetaQuotaUi {
         LinearLayout section=new LinearLayout(activity);section.setOrientation(LinearLayout.VERTICAL);
         parent.addView(section,new LinearLayout.LayoutParams(-1,-2));
         String expected=SubscriptionStore.accountKey(activity);
-        fill(activity,section,snapshot,dark,clockUpdates,true,
+        fill(activity,section,snapshot,dark,clockUpdates,true,expected,
                 () -> BetaHomeDetailsUi.show(activity,snapshot,dark,expected));
     }
 
-    static void details(MainActivity activity,LinearLayout parent,UsageSnapshot snapshot,boolean dark){fill(activity,parent,snapshot,dark,new java.util.ArrayList<>(),false,null);}
+    static void details(MainActivity activity, LinearLayout parent, boolean dark, String account) {
+        LinearLayout section = new LinearLayout(activity);
+        section.setOrientation(LinearLayout.VERTICAL);
+        parent.addView(section);
+        activity.bindQuotaDetails(section, account, (snapshot, clocks) -> {
+            fill(activity, section, snapshot, dark, clocks, false, account, null);
+            WeeklyQuotaIndexUi.addEventSetting(activity, section, snapshot, account, dark);
+        });
+    }
 
     private static void fill(MainActivity activity,LinearLayout card,UsageSnapshot snapshot,
-            boolean dark,List<Runnable> clockUpdates,boolean compact,Runnable onDetails){
+            boolean dark,List<Runnable> clockUpdates,boolean compact,String account,Runnable onDetails){
         card.setTag("beta998:quota");
         if (!compact && TrialDemo.active(activity)) card.addView(BetaUi.note(activity,
                 BetaExperienceUi.t(activity, "가상 데모 · 실제 계정 한도 아님",
@@ -48,9 +56,9 @@ final class BetaQuotaUi {
         meters.setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         card.addView(meters, new LinearLayout.LayoutParams(-1, -2));
         addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.fiveHour,
-                true, dark, stacked, clockUpdates,compact);
-        addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.weekly,
-                false, dark, stacked, clockUpdates,compact);
+                true, dark, stacked, clockUpdates,compact,account);
+        addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.longWindow(),
+                false, dark, stacked, clockUpdates,compact,account);
         if (snapshot == null && onDetails == null) return;
         LinearLayout footer=new LinearLayout(activity);
         footer.setGravity(Gravity.CENTER_VERTICAL);
@@ -85,8 +93,9 @@ final class BetaQuotaUi {
 
     private static void addWindow(MainActivity activity, LinearLayout parent,
             UsageSnapshot snapshot, UsageWindow window, boolean fiveHour, boolean dark,
-            boolean stacked, List<Runnable> clockUpdates,boolean compact) {
-        String key = fiveHour ? "five-hour" : "weekly";
+            boolean stacked, List<Runnable> clockUpdates,boolean compact,String account) {
+        boolean monthly = !fiveHour && snapshot != null && snapshot.longWindowIsMonthly();
+        String key = fiveHour ? "five-hour" : monthly ? "monthly" : "weekly";
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(stacked ? -1 : 0, -2,
@@ -103,7 +112,7 @@ final class BetaQuotaUi {
             }
         }
         parent.addView(column, params);
-        String label = BetaExperienceUi.t(activity,
+        String label = monthly ? activity.getString(R.string.quota_month_remaining) : BetaExperienceUi.t(activity,
                 fiveHour ? "5시간 한도 남음" : "주간 한도 남음",
                 fiveHour ? "5-hour remaining" : "Weekly remaining");
         TextView heading=BetaUi.text(activity,label,14,Ui.secondaryText(dark),false);
@@ -126,6 +135,16 @@ final class BetaQuotaUi {
         LinearLayout.LayoutParams bar=new LinearLayout.LayoutParams(-1,Ui.dp(activity,6));
         bar.bottomMargin=Ui.dp(activity,3);
         column.addView(progress,bar);
+        if (monthly && !compact) {
+            TextView used = BetaUi.note(activity, activity.getString(R.string.quota_month_used,
+                    UsagePrecision.used(window, AppPreferences.usageDecimalPlaces(activity))), dark);
+            used.setTag("monthly:used");
+            column.addView(used);
+        } else if (!fiveHour && !monthly) {
+            WeeklyQuotaIndexUi.add(activity, column, snapshot, account, dark,
+                    compact ? WeeklyQuotaIndexUi.Display.REMAINING : WeeklyQuotaIndexUi.Display.USED_WITH_PERCENT,
+                    clockUpdates);
+        }
         TextView status = BetaUi.note(activity, "", dark);
         status.setTextSize(13);
         status.setTag("beta998:quota:" + key + ":status");
@@ -185,13 +204,14 @@ final class BetaQuotaUi {
         update.run();
     }
     private static UsageEvidence.State commonState(MainActivity a,UsageSnapshot snapshot){
-        if(snapshot==null||snapshot.fiveHour==null||snapshot.weekly==null)return null;
+        if(snapshot==null||snapshot.fiveHour==null||snapshot.longWindow()==null)return null;
         long now=System.currentTimeMillis();boolean failed=!AppPreferences.getLastError(a).isEmpty();int interval=RefreshScheduler.effectiveRefreshMinutes(a);
         UsageEvidence.State five=UsageEvidence.state(snapshot,snapshot.fiveHour,failed,now,interval);
-        UsageEvidence.State week=UsageEvidence.state(snapshot,snapshot.weekly,failed,now,interval);
+        UsageWindow longer=snapshot.longWindow();
+        UsageEvidence.State week=UsageEvidence.state(snapshot,longer,failed,now,interval);
         // Reset expiry stays next to the affected window, including when a fetch also failed.
         if(snapshot.fiveHour.effectiveResetAtMillis(snapshot.fetchedAtMillis)>0&&snapshot.fiveHour.effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return null;
-        if(snapshot.weekly.effectiveResetAtMillis(snapshot.fetchedAtMillis)>0&&snapshot.weekly.effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return null;
+        if(longer.effectiveResetAtMillis(snapshot.fetchedAtMillis)>0&&longer.effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return null;
         return five==week&&(five==UsageEvidence.State.CACHED_AFTER_FAILURE||five==UsageEvidence.State.STALE)?five:null;
     }
     private static int statusResource(UsageEvidence.State state){

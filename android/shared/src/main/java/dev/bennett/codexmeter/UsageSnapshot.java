@@ -17,6 +17,8 @@ public final class UsageSnapshot {
     /** Monthly Codex window (~30 days); reported instead of 5-hour/weekly on the Free tier. */
     public final UsageWindow monthly;
     public final String planType;
+    // The provider's exact "pro" wire ID identifies the middle Pro tier. Older cached display labels do not.
+    final boolean providerProTierConfirmed;
     public final int resetCreditsAvailable;
     public final UsageCredits usageCredits;
     public final UsageWindow weekly;
@@ -39,7 +41,15 @@ public final class UsageSnapshot {
             UsageWindow usageWindow2, UsageWindow monthlyWindow,
             List<UsageLimit> additionalLimits,
             UsageCredits usageCredits, int i, long j) {
+        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,
+                usageCredits, i, j, false);
+    }
+
+    UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,
+            UsageWindow usageWindow2, UsageWindow monthlyWindow, List<UsageLimit> additionalLimits,
+            UsageCredits usageCredits, int i, long j, boolean providerProTierConfirmed) {
         this.planType = str == null ? "" : str;
+        this.providerProTierConfirmed = providerProTierConfirmed && "pro".equals(this.planType);
         this.allowed = z;
         this.limitReached = z2;
         this.fiveHour = usageWindow;
@@ -70,6 +80,7 @@ public final class UsageSnapshot {
     public JSONObject toJson() throws JSONException {
         JSONObject jSONObject = new JSONObject();
         jSONObject.put("plan_type", this.planType);
+        if (providerProTierConfirmed) jSONObject.put("provider_pro_tier_confirmed", true);
         jSONObject.put("allowed", this.allowed);
         jSONObject.put("limit_reached", this.limitReached);
         if (this.fiveHour != null) {
@@ -125,7 +136,8 @@ public final class UsageSnapshot {
                 UsageCredits.fromJson(jSONObject.optJSONObject("usage_credits")),
                 jSONObject.has("reset_credits_available")
                         ? jSONObject.optInt("reset_credits_available", -1) : -1,
-                jSONObject.optLong("fetched_at", 0L));
+                jSONObject.optLong("fetched_at", 0L),
+                Boolean.TRUE.equals(jSONObject.opt("provider_pro_tier_confirmed")));
     }
 
     public long nextResetMillis(long j) {

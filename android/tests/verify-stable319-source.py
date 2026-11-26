@@ -1,4 +1,4 @@
-"""Verify the historical releases, the accepted redesign and its 3.1.11 release metadata."""
+"""Verify the published phone releases and the scope of the weekly quota comparison."""
 import json
 from pathlib import Path
 import subprocess
@@ -9,6 +9,7 @@ previous = '83e2cf0b6a9f2b67bc19fdb7349c63d4ad9b3505'
 published = 'eff2300c0e3bf7ef590fcf9710b6a54451816115'
 stable = 'bfec707836b5d81a46585617ad78a77d9a9821a7'
 design = 'eb813db9553941f914d83beba66cd0a2e4e3afbf'
+released_3111 = 'c04f1d33703ef97476eae021627697bb82aa81cd'
 app = 'android/app/src/main/java/dev/bennett/codexmeter/'
 history = 'android/app/src/main/assets/release-history.json'
 
@@ -91,19 +92,35 @@ metadata = {
                                 ('VERSION_NAME = "3.1.10";', 'VERSION_NAME = "3.1.11";')],
     'android/build.sh': [('VERSION_NAME="3.1.10"', 'VERSION_NAME="3.1.11"')],
 }
-current = paths('diff', '--name-only', design) | paths('ls-files', '-o', '--exclude-standard')
-assert production(current) == set(metadata) | {history}, production(current) ^ (set(metadata) | {history})
+release_3111 = paths('diff', '--name-only', design, released_3111)
+assert production(release_3111) == set(metadata) | {history}, production(release_3111) ^ (set(metadata) | {history})
 for file, replacements in metadata.items():
     expected = git('show', design + ':' + file).decode('utf-8')
     for before, after in replacements:
         assert expected.count(before) == 1, (file, before)
         expected = expected.replace(before, after)
-    assert (root / file).read_text(encoding='utf-8') == expected, file
-new_history = json.loads((root / history).read_text(encoding='utf-8'))
+    assert git('show', released_3111 + ':' + file) == expected.encode('utf-8'), file
+new_history = json.loads(git('show', released_3111 + ':' + history))
 first = new_history[0]
 assert new_history[1:] == latest and first['version'] == '3.1.11', 'Earlier release history changed'
 assert first['source'] == 'https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.11'
 assert all(first[lang]['title'] and first[lang]['changes'] for lang in ('ko', 'en'))
-assert not paths('diff', '--diff-filter=D', '--name-only', stable)
+assert not paths('diff', '--diff-filter=D', '--name-only', stable, released_3111)
+
+# Scope the current work separately so a later feature cannot alter the historical release check.
+quota_scope = {app + name + '.java' for name in (
+    'BetaHomeDetailsUi', 'BetaQuotaUi', 'MainActivity', 'UsageParser',
+    'WeeklyQuotaIndex', 'WeeklyQuotaIndexUi')}
+quota_scope.add('android/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java')
+quota_scope.update(res + folder + '/quota_index_strings.xml' for folder in ('values', 'values-ko'))
+quota_changes = paths('diff', '--name-only', released_3111) | paths('ls-files', '-o', '--exclude-standard')
+for file in metadata:
+    prior = git('show', released_3111 + ':' + file).decode('utf-8')
+    assert (root / file).read_text('utf-8') == prior.replace('3.1.11', '3.1.12').replace('= 98', '= 99'), file
+current_history = json.loads((root / history).read_text('utf-8'))
+assert current_history[1:] == new_history and current_history[0]['version'] == '3.1.12'
+quota_scope.update(set(metadata) | {history})
+assert production(quota_changes) <= quota_scope, production(quota_changes) - quota_scope
+assert not paths('diff', '--diff-filter=D', '--name-only', released_3111)
 subprocess.run([sys.executable, str(root / 'android/tests/verify-coach-design.py')], check=True)
-print('3.1.9 and 3.1.10 snapshots, accepted redesign, 3.1.11/code98 identity and history passed.')
+print('3.1.9 through 3.1.11/code98 published releases, redesign and weekly quota change scope passed.')

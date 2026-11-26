@@ -95,7 +95,7 @@ public final class UsageParser {
                 usageCredits,
                 jSONObjectNullableObject3 == null
                         ? -1 : jSONObjectNullableObject3.optInt("available_count", -1),
-                j);
+                j, "pro".equals(strOptString));
     }
 
     private static String firstNonEmpty(String... values) {

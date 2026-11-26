@@ -52,6 +52,7 @@ public final class MainActivity extends AppCompatActivity {
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
     private final List<Runnable> quotaClockUpdates = new ArrayList<>();
+    private java.util.function.Consumer<String> visibleQuotaDetails;
     private TextView freshnessView;
     private LedgerDashboard.State ledgerOverview;
     private static final ExecutorService refreshWorker = Executors.newSingleThreadExecutor();
@@ -375,7 +376,9 @@ public final class MainActivity extends AppCompatActivity {
         scheduleInsightTick();
         invalidateOptionsMenu();UsageSnapshot current=AppPreferences.loadSnapshot(this);String signature=SubscriptionStore.key(this,current)+":"+(current==null?0:current.fetchedAtMillis)+":"+AppPreferences.getLastError(this).hashCode()+":"+getSharedPreferences("codex_subscription_cost",0).getAll().hashCode()+":"+(current==null?"":UsageInsights.freshness(current.fetchedAtMillis,System.currentTimeMillis(),RefreshScheduler.effectiveRefreshMinutes(this)))+":"+LedgerAggregation.day(System.currentTimeMillis())+":"+getSharedPreferences("codex_meter_settings_v1",0).getAll().hashCode()+":"+getSharedPreferences("codex_fun_v1",0).getAll().hashCode()+":"+getSharedPreferences("codex_fun_settings",0).getAll().hashCode()+":"+getSharedPreferences("codex_tier_evolution_v2",0).getString("revision","")+":"+getSharedPreferences("codex_meter_updates_v1",0).getAll().hashCode()+":"+LiveUsageStore.revision()+":"+TaskStatusStore.enabled(this)+":"+getSharedPreferences("codex_rpg_display_v1",0).getAll().hashCode()+":"+getSharedPreferences("codex_rpg_showcase_v1",0).getAll().hashCode();
         signature+=":"+getSharedPreferences("beta_identity_v1",0).getAll().hashCode()+":"+getSharedPreferences("beta_growth_display_v4",0).getAll().hashCode()+":"+getSharedPreferences(BetaMedalStore.CACHE,0).getAll().hashCode()+":"+AppPreferences.isOAuthPending(this)+":"+BetaPreferences.prefs(this).getAll().hashCode();
-        signature+=":"+SpicyQuotes.cacheKey(this,SubscriptionStore.accountKey(this));
+        String account = SubscriptionStore.accountKey(this);
+        if (visibleQuotaDetails != null) visibleQuotaDetails.accept(account);
+        signature+=":"+SpicyQuotes.cacheKey(this,account);
         if(signature.equals(renderedSignature)&&content.getChildCount()>0){if(taskStatusRow!=null){String taskText=TaskStatusStore.homeText(this);if(!taskText.contentEquals(taskStatusRow.getText()))taskStatusRow.setText(taskText);}if(ledgerOverview!=null)ledgerOverview.updateClock();for(Runnable update:quotaClockUpdates)update.run();return;}
         android.view.View scroll=findViewById(R.id.dashboard_scroll);if(scroll!=null&&content.getChildCount()>0)homeScroll=scroll.getScrollY();restoreHomePending=homeScroll>0;renderedSignature=signature;
         freshnessView=null;ledgerOverview=null;taskStatusRow=null;weeklyInsightRows=null;quotaClockUpdates.clear();content.removeAllViews();
@@ -432,11 +435,56 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
+    // Both limit dialogs follow the same cached observation and clock as the home screen.
+    void bindQuotaDetails(LinearLayout panel, String account,
+            java.util.function.BiConsumer<UsageSnapshot,List<Runnable>> render) {
+        class Binding implements java.util.function.Consumer<String>, View.OnAttachStateChangeListener {
+            final List<Runnable> clocks = new ArrayList<>();
+            String previous;
+            boolean initialized;
+
+            @Override public void accept(String currentAccount) {
+                if (!java.util.Objects.equals(account, currentAccount)) {
+                    clocks.clear();
+                    panel.removeAllViews();
+                    initialized = false;
+                    return;
+                }
+                String observation = getSharedPreferences("codex_meter_settings_v1", 0).getString("last_snapshot", null);
+                if (!initialized || !java.util.Objects.equals(previous, observation)) {
+                    initialized = true;
+                    previous = observation;
+                    clocks.clear();
+                    panel.removeAllViews();
+                    render.accept(AppPreferences.loadSnapshot(MainActivity.this), clocks);
+                } else {
+                    for (Runnable clock : clocks) clock.run();
+                }
+            }
+
+            @Override public void onViewAttachedToWindow(View v) {
+                visibleQuotaDetails = this;
+                accept(SubscriptionStore.accountKey(MainActivity.this));
+            }
+
+            @Override public void onViewDetachedFromWindow(View v) {
+                if (visibleQuotaDetails == this) visibleQuotaDetails = null;
+            }
+        }
+        Binding binding = new Binding();
+        panel.addOnAttachStateChangeListener(binding);
+        binding.accept(account);
+    }
+
     private void showQuotaDetails(){
-        ScrollView scroll=new ScrollView(this);LinearLayout details=buildUsageDashboard();
-        details.setPadding(Ui.dp(this,16),Ui.dp(this,12),Ui.dp(this,16),Ui.dp(this,16));
-        if(details.getChildCount()==0)details.addView(LedgerUi.caption(this,getString(R.string.v3_hidden),dark));
-        scroll.addView(details);new AlertDialog.Builder(this).setTitle(R.string.v3_limit_details).setView(scroll).setPositiveButton(R.string.ui_done_e9b450,null).show();
+        LinearLayout details=BetaMedalUi.content(this);
+        String account=SubscriptionStore.accountKey(this);
+        bindQuotaDetails(details, account, (snapshot, clocks) -> {
+            LinearLayout dashboard=buildUsageDashboard(snapshot, account, clocks);
+            if(dashboard.getChildCount()==0)dashboard.addView(LedgerUi.caption(this,getString(R.string.v3_hidden),dark));
+            details.addView(dashboard);
+        });
+        BetaMedalUi.show(this,getString(R.string.v3_limit_details),details,account);
     }
 
     private LinearLayout buildUpdateCard(GitHubRelease release) {
@@ -473,8 +521,7 @@ public final class MainActivity extends AppCompatActivity {
         this.content.addView(textViewText, layoutParams);
     }
 
-    private LinearLayout buildUsageDashboard() {
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
+    private LinearLayout buildUsageDashboard(UsageSnapshot snapshot, String account, List<Runnable> clocks) {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -525,15 +572,15 @@ public final class MainActivity extends AppCompatActivity {
                 AppPreferences.getDashboardOrder(this), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
-                        MainActivity.this.getString(R.string.ui_5_hour_bc4288), snapshot, snapshot.fiveHour, inverted));
+                        MainActivity.this.getString(R.string.ui_5_hour_bc4288), snapshot, snapshot.fiveHour, inverted, account, clocks));
                 inverted = !inverted;
             } else if (DashboardSections.WEEKLY.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
-                        MainActivity.this.getString(R.string.ui_weekly_158f3d), snapshot, snapshot.weekly, inverted));
+                        MainActivity.this.getString(R.string.ui_weekly_158f3d), snapshot, snapshot.weekly, inverted, account, clocks));
                 inverted = !inverted;
             } else if (DashboardSections.MONTHLY.equals(key)) {
                 addDashboardCard(column, buildMetricCard(
-                        MainActivity.this.getString(R.string.ui_monthly_d31edb), snapshot, snapshot.monthly, inverted));
+                        MainActivity.this.getString(R.string.ui_monthly_d31edb), snapshot, snapshot.monthly, inverted, account, clocks));
                 inverted = !inverted;
             } else if (DashboardSections.USAGE_CREDITS.equals(key)) {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
@@ -550,13 +597,13 @@ public final class MainActivity extends AppCompatActivity {
                     if (limit.primary != null) {
                         addDashboardCard(column, buildMetricCard(
                                 limitTitle(limit) + " · " + cadenceLabel(limit.primary),
-                                snapshot, limit.primary, inverted));
+                                snapshot, limit.primary, inverted, account, clocks));
                         inverted = !inverted;
                     }
                     if (limit.secondary != null) {
                         addDashboardCard(column, buildMetricCard(
                                 limitTitle(limit) + " · " + cadenceLabel(limit.secondary),
-                                snapshot, limit.secondary, inverted));
+                                snapshot, limit.secondary, inverted, account, clocks));
                         inverted = !inverted;
                     }
                 }
@@ -573,7 +620,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private LinearLayout buildMetricCard(String label, UsageSnapshot snapshot, UsageWindow window,
-            boolean invertedWave) {
+            boolean invertedWave, String account, List<Runnable> clocks) {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(0, 0, 0, 0);
         card.setMinimumHeight(Ui.dp(this, 103.0f));
@@ -609,9 +656,15 @@ public final class MainActivity extends AppCompatActivity {
                         clock,WidgetOptions.RESET_RELATIVE,true),UsageFormat.estimatedRemaining(this,currentPace),
                         window.remainingPercent(),R.drawable.ic_oui_time,invertedWave,currentPace.accelerated);
             };
-            quotaClockUpdates.add(update);update.run();
+            clocks.add(update);update.run();
         }
         if (window == snapshot.weekly) {
+            LinearLayout comparison = new LinearLayout(this);
+            comparison.setOrientation(LinearLayout.VERTICAL);
+            comparison.setPadding(Ui.dp(this,16), 0, Ui.dp(this,16), 0);
+            card.addView(comparison);
+            WeeklyQuotaIndexUi.add(this, comparison, snapshot, account, dark, WeeklyQuotaIndexUi.Display.USED, clocks);
+            WeeklyQuotaIndexUi.addEventSetting(this, comparison, snapshot, account, dark);
             weeklyInsightRows = UsageInsightDisplay.addWeeklyRows(this, card, snapshot, dark);
         }
         return card;

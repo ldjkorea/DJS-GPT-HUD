@@ -1,4 +1,28 @@
 {
+  "UsageParser.java": [
+    [
+      "                j);\n    }\n\n    private static String firstNonEmpty",
+      "                j, \"pro\".equals(strOptString));\n    }\n\n    private static String firstNonEmpty"
+    ]
+  ],
+  "UsageSnapshot.java": [
+    [
+      "    public final String planType;\n",
+      "    public final String planType;\n    // The provider's exact \"pro\" wire ID identifies the middle Pro tier. Older cached display labels do not.\n    final boolean providerProTierConfirmed;\n"
+    ],
+    [
+      "        this.planType = str == null ? \"\" : str;\n",
+      "        this(str, z, z2, usageWindow, usageWindow2, monthlyWindow, additionalLimits,\n                usageCredits, i, j, false);\n    }\n\n    UsageSnapshot(String str, boolean z, boolean z2, UsageWindow usageWindow,\n            UsageWindow usageWindow2, UsageWindow monthlyWindow, List<UsageLimit> additionalLimits,\n            UsageCredits usageCredits, int i, long j, boolean providerProTierConfirmed) {\n        this.planType = str == null ? \"\" : str;\n        this.providerProTierConfirmed = providerProTierConfirmed && \"pro\".equals(this.planType);\n"
+    ],
+    [
+      "        jSONObject.put(\"plan_type\", this.planType);\n",
+      "        jSONObject.put(\"plan_type\", this.planType);\n        if (providerProTierConfirmed) jSONObject.put(\"provider_pro_tier_confirmed\", true);\n"
+    ],
+    [
+      "                jSONObject.optLong(\"fetched_at\", 0L));",
+      "                jSONObject.optLong(\"fetched_at\", 0L),\n                Boolean.TRUE.equals(jSONObject.opt(\"provider_pro_tier_confirmed\")));"
+    ]
+  ],
   "AppPreferences.java": [
     [
       "\n    private static SharedPreferences prefs(Context context) {\n        return context.getSharedPreferences(PREFS, 0);\n    }\n\n    public static boolean saveSnapshot(Context context, UsageSnapshot usageSnapshot) {\n",
