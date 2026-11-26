@@ -35,7 +35,22 @@ public final class UsagePrecision {
     }
     public static String percent(UsageWindow window,boolean used,int digits,boolean symbol) {
         if(window==null)return "—";
-        if(digits==0)return Integer.toString(used?window.usedPercent:window.remainingPercent())+(symbol?"%":"");
+        if (digits == 0) {
+            double raw = window.preciseUsedPercent;
+            boolean nearEmpty = raw > 0 && raw < 1;
+            boolean nearFull = raw > 99 && raw < 100;
+            if (nearEmpty || nearFull) {
+                boolean belowOne = used ? nearEmpty : nearFull;
+                // Preserve the widget option to hide the percent symbol.
+                if (!symbol) return belowOne ? "<1" : ">99";
+                if ("ko".equals(Locale.getDefault().getLanguage())) {
+                    return belowOne ? "1% 미만" : "99% 초과";
+                }
+                return belowOne ? "<1%" : ">99%";
+            }
+            int value = used ? window.usedPercent : window.remainingPercent();
+            return Integer.toString(value) + (symbol ? "%" : "");
+        }
         BigDecimal value=BigDecimal.valueOf(window.preciseUsedPercent);
         if(!used)value=BigDecimal.valueOf(100).subtract(value);
         return number(value,digits)+(symbol?"%":"");

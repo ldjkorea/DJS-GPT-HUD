@@ -25,9 +25,19 @@ public final class CoachCatalog {
         Map<Integer,String> old=new HashMap<>();JSONObject mapping=json.getJSONObject("legacyIds");Iterator<String> it=mapping.keys();while(it.hasNext()){String k=it.next();String v=mapping.getString(k);if(!ids.contains(v))throw new IllegalArgumentException("Legacy quote mapping");old.put(Integer.parseInt(k),v);}legacyIds=Collections.unmodifiableMap(old);
     }
     public Quote find(String id){for(Quote q:quotes)if(q.id.equals(id))return q;return null;}
+    static final String WEEKLY_PRACTICE = "weekly_practice";
     public static String group(UsageSnapshot snapshot,boolean fresh,boolean error,boolean bonus,double daily,long now){
+        return group(snapshot, fresh, error, bonus, daily, now, false);
+    }
+    static String group(UsageSnapshot snapshot, boolean fresh, boolean error, boolean bonus,
+            double daily, long now, boolean verifiedPro) {
         if(error)return "network";if(snapshot==null||snapshot.longWindow()==null)return "missing";if(!fresh||snapshot.fetchedAtMillis>now||now-snapshot.fetchedAtMillis>900000L||snapshot.longWindow().effectiveResetAtMillis(snapshot.fetchedAtMillis)<=now)return "stale";
-        if(snapshot.weekly!=null&&snapshot.fiveHour==null&&snapshot.allowed&&!snapshot.limitReached)return "missing"; // Partial relevant limit coverage.
+        if (snapshot.weekly != null && snapshot.fiveHour == null && snapshot.allowed && !snapshot.limitReached) {
+            if (!verifiedPro || snapshot.monthly != null || !snapshot.additionalLimits.isEmpty()) return "missing";
+            double used = snapshot.weekly.preciseUsedPercent;
+            if (used >= 100) return "missing"; // A still-allowed account may have an unobserved credit allowance.
+            return used >= 90 ? "critical" : WEEKLY_PRACTICE;
+        }
         if(expired(snapshot.fiveHour,snapshot.fetchedAtMillis,now)||expired(snapshot.monthly,snapshot.fetchedAtMillis,now))return "stale";
         // Authoritative blocked flags and relevant short-window constraint precede bonus/burst.
         if(snapshot.limitReached||!snapshot.allowed||snapshot.fiveHour!=null&&snapshot.fiveHour.preciseUsedPercent>=90&&snapshot.fiveHour.preciseUsedPercent<100)return "critical";
@@ -72,7 +82,13 @@ public final class CoachCatalog {
     public Quote select(JSONObject state,String group,String tone,String interest,String stamp,boolean rotate,Random random)throws JSONException {
         if(!tone.equals("spicy"))return null;
         JSONArray hidden=state.optJSONArray("hidden");if(hidden==null)hidden=new JSONArray();JSONArray recent=state.optJSONArray("recent"),recentTips=state.optJSONArray("tips");if(recent==null)recent=new JSONArray();if(recentTips==null)recentTips=new JSONArray();
-        List<Quote> candidates=new ArrayList<>();for(Quote q:quotes)if(q.group.equals(group)&&q.tone.equals(tone)&&!contains(hidden,q.id))candidates.add(q);
+        List<Quote> candidates = new ArrayList<>();
+        for (Quote q : quotes) {
+            // The practical tip series contains no allowance, billing or zero-activity claims.
+            boolean eligible = WEEKLY_PRACTICE.equals(group)
+                    ? q.id.startsWith("ko.practice.") && !q.tipId.isEmpty() : q.group.equals(group);
+            if (eligible && q.tone.equals(tone) && !contains(hidden, q.id)) candidates.add(q);
+        }
         Quote current=find(state.optString("current"));if(!rotate&&stamp.equals(state.optString("stamp"))&&candidates.contains(current))return current;
         Quote chosen=null;int best=Integer.MIN_VALUE,totalWeight=0;for(Quote q:candidates){Tip t=tips.get(q.tipId);int score=0;
             // No tip calls during constrained/unknown states. Display only offline preparation copy.

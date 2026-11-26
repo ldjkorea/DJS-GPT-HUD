@@ -26,7 +26,7 @@ final class CoachUi {
         String tone = CoachPolicy.tone(a);
         String identity = SpicyQuotes.identity(a, account);
         SpicyQuotes.Selection selection = SpicyQuotes.peek(a, account);
-        String group = CoachCatalog.group(snapshot, fresh, !AppPreferences.getLastError(a).isEmpty(),
+        String group = SpicyQuotes.group(snapshot, fresh, !AppPreferences.getLastError(a).isEmpty(),
                 bonus, daily, System.currentTimeMillis());
         boolean constrained = CoachCatalog.constrained(group);
         AlertDialog open = OPEN.get(a);

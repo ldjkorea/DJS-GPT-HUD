@@ -10,6 +10,7 @@ published = 'eff2300c0e3bf7ef590fcf9710b6a54451816115'
 stable = 'bfec707836b5d81a46585617ad78a77d9a9821a7'
 design = 'eb813db9553941f914d83beba66cd0a2e4e3afbf'
 released_3111 = 'c04f1d33703ef97476eae021627697bb82aa81cd'
+released_3112 = '794a5ac37415bc5fd80e104ae2989b0aca7acfc6'
 app = 'android/app/src/main/java/dev/bennett/codexmeter/'
 history = 'android/app/src/main/assets/release-history.json'
 
@@ -107,20 +108,45 @@ assert first['source'] == 'https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/
 assert all(first[lang]['title'] and first[lang]['changes'] for lang in ('ko', 'en'))
 assert not paths('diff', '--diff-filter=D', '--name-only', stable, released_3111)
 
-# Scope the current work separately so a later feature cannot alter the historical release check.
+# Check the source and metadata actually shipped for 3.1.12.
 quota_scope = {app + name + '.java' for name in (
     'BetaHomeDetailsUi', 'BetaQuotaUi', 'MainActivity', 'UsageParser',
     'WeeklyQuotaIndex', 'WeeklyQuotaIndexUi')}
 quota_scope.add('android/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java')
 quota_scope.update(res + folder + '/quota_index_strings.xml' for folder in ('values', 'values-ko'))
-quota_changes = paths('diff', '--name-only', released_3111) | paths('ls-files', '-o', '--exclude-standard')
+quota_changes = paths('diff', '--name-only', released_3111, released_3112)
 for file in metadata:
     prior = git('show', released_3111 + ':' + file).decode('utf-8')
-    assert (root / file).read_text('utf-8') == prior.replace('3.1.11', '3.1.12').replace('= 98', '= 99'), file
-current_history = json.loads((root / history).read_text('utf-8'))
+    assert git('show', released_3112 + ':' + file).decode('utf-8') == prior.replace('3.1.11', '3.1.12').replace('= 98', '= 99'), file
+current_history = json.loads(git('show', released_3112 + ':' + history))
 assert current_history[1:] == new_history and current_history[0]['version'] == '3.1.12'
+assert current_history[0]['source'] == 'https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.12'
+assert all(current_history[0][lang]['title'] and current_history[0][lang]['changes'] for lang in ('ko', 'en'))
 quota_scope.update(set(metadata) | {history})
-assert production(quota_changes) <= quota_scope, production(quota_changes) - quota_scope
-assert not paths('diff', '--diff-filter=D', '--name-only', released_3111)
+assert production(quota_changes) == quota_scope, production(quota_changes) ^ quota_scope
+assert not paths('diff', '--diff-filter=D', '--name-only', released_3111, released_3112)
+
+# 3.1.13 changes the accepted presentation and phone release metadata.
+# The parser, account storage, updater and companion applications stay protected.
+presentation_scope = {app + name + '.java' for name in (
+    'BetaHomeDetailsUi', 'BetaQuotaUi', 'BetaSettingsUi', 'BetaWeeklyUi', 'WeeklyQuotaIndexUi',
+    'UsageInsightDisplay', 'CoachUi', 'SpicyQuotes')}
+shared = 'android/shared/src/main/java/dev/bennett/codexmeter/'
+presentation_scope.update(shared + name + '.java' for name in ('UsagePrecision', 'CoachCatalog'))
+presentation_scope.update(res + folder + '/quota_index_strings.xml' for folder in ('values', 'values-ko'))
+for file in metadata:
+    prior = git('show', released_3112 + ':' + file).decode('utf-8')
+    expected = prior.replace('3.1.12', '3.1.13').replace('= 99', '= 100')
+    assert expected != prior and (root / file).read_text('utf-8') == expected, file
+candidate_history = json.loads((root / history).read_text('utf-8'))
+assert candidate_history[1:] == current_history, 'Prior release notes changed'
+candidate = candidate_history[0]
+assert candidate['version'] == '3.1.13'
+assert candidate['source'] == 'https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.13'
+assert all(candidate[lang]['title'] and candidate[lang]['changes'] for lang in ('ko', 'en'))
+presentation_scope.update(set(metadata) | {history})
+working = paths('diff', '--name-only', released_3112) | paths('ls-files', '-o', '--exclude-standard')
+assert production(working) == presentation_scope, production(working) ^ presentation_scope
+assert not paths('diff', '--diff-filter=D', '--name-only', released_3112)
 subprocess.run([sys.executable, str(root / 'android/tests/verify-coach-design.py')], check=True)
-print('3.1.9 through 3.1.11/code98 published releases, redesign and weekly quota change scope passed.')
+print('Historical releases through 3.1.12 and 3.1.13/code100 metadata, history and presentation scope passed.')

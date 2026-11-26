@@ -11,7 +11,7 @@ import java.util.List;
 /** A local display preference. It never writes to the observed usage or the growth ledger. */
 final class WeeklyQuotaIndexUi {
     private WeeklyQuotaIndexUi() {}
-    enum Display { REMAINING, USED, USED_WITH_PERCENT }
+    enum Display { REMAINING, USED }
 
     private static SharedPreferences preferences(Context context) {
         return context.getSharedPreferences("weekly_quota_index", Context.MODE_PRIVATE);
@@ -27,7 +27,7 @@ final class WeeklyQuotaIndexUi {
         String plan = WeeklyQuotaIndex.planFor(snapshot);
         String key = eventKey(account, plan);
         boolean home = display == Display.REMAINING;
-        if (display != Display.USED_WITH_PERCENT && key == null) return;
+        if (key == null) return;
 
         UsageWindow week = snapshot.weekly;
         SharedPreferences settings = preferences(activity);
@@ -42,19 +42,15 @@ final class WeeklyQuotaIndexUi {
                     !AppPreferences.getLastError(activity).isEmpty(), now,
                     RefreshScheduler.effectiveRefreshMinutes(activity));
             boolean fresh = state == UsageEvidence.State.CONFIRMED && (reset <= 0 || reset > now);
-            boolean doubled = key != null && settings.getBoolean(key, false);
-            WeeklyQuotaIndex index = fresh && key != null
+            boolean doubled = settings.getBoolean(key, false);
+            WeeklyQuotaIndex index = fresh
                     ? WeeklyQuotaIndex.estimate(plan, week.preciseUsedPercent, doubled) : null;
             String text = "";
-            if (display == Display.USED_WITH_PERCENT) {
-                text = activity.getString(fresh ? R.string.quota_week_used : R.string.quota_week_last_used,
-                        UsagePrecision.used(week, AppPreferences.usageDecimalPlaces(activity)));
-            }
             if (index != null) {
                 String scale = activity.getString(home ? R.string.quota_index_remaining : R.string.quota_index_used,
                         home ? index.remaining : index.used, index.total);
                 if (doubled) scale = activity.getString(R.string.quota_index_doubled, scale);
-                text = text.isEmpty() ? scale : text + "\n" + scale;
+                text = scale;
             }
             if (!text.contentEquals(result.getText())) result.setText(text);
             result.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
@@ -78,7 +74,10 @@ final class WeeklyQuotaIndexUi {
         toggle.setSwitchPadding(Ui.dp(activity, 12));
         toggle.setChecked(settings.getBoolean(key, false));
         parent.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
-        parent.addView(BetaUi.note(activity, activity.getString(R.string.quota_index_explanation), dark));
+        String plan = WeeklyQuotaIndex.planFor(snapshot);
+        String name = "plus".equals(plan) ? "Plus" : "Pro " + plan.substring(3);
+        parent.addView(BetaUi.note(activity, activity.getString(R.string.quota_index_explanation,
+                name, WeeklyQuotaIndex.baseTotal(plan)), dark));
         toggle.setOnCheckedChangeListener((button, checked) -> {
             UsageSnapshot current = AppPreferences.loadSnapshot(activity);
             String currentKey = eventKey(SubscriptionStore.accountKey(activity), WeeklyQuotaIndex.planFor(current));

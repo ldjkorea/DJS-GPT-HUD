@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="quota_index_remaining">Estimated remaining index · %1$,d / %2$,d</string>
-    <string name="quota_index_used">Estimated used index · %1$,d / %2$,d</string>
-    <string name="quota_index_doubled">%1$s · 2×</string>
-    <string name="quota_week_used">Used this week · %1$s</string>
+    <string name="quota_index_remaining">Estimated remaining index · %1$,d\u00a0/\u00a0%2$,d</string>
+    <string name="quota_index_used">Estimated used index · %1$,d\u00a0/\u00a0%2$,d</string>
+    <string name="quota_index_doubled">%1$s · manual 2×</string>
     <string name="quota_month_remaining">Monthly remaining</string>
-    <string name="quota_month_used">Monthly usage at last check · %1$s</string>
-    <string name="quota_week_last_used">Weekly usage at last check · %1$s</string>
-    <string name="quota_event_switch">Apply 2× event to estimate</string>
-    <string name="quota_index_explanation">The index compares weekly allowances with Plus set to 100. Enable it for a confirmed double-allowance event. The index uses 2× for this account and plan until you turn it off.</string>
+    <string name="quota_event_switch">Double the estimated index manually</string>
+    <string name="quota_index_explanation">%1$s base index %2$,d · One Plus week = 100\nThis changes the display scale for this account and plan. Turn it off after the event.</string>
+    <string name="quota_five_remaining">5-hour remaining</string>
+    <string name="quota_five_used">5-hour usage</string>
+    <string name="quota_week_remaining">Weekly remaining</string>
+    <string name="quota_week_used_heading">Used this week</string>
+    <string name="quota_month_used_heading">Monthly usage</string>
+    <string name="quota_last_value">At last check · %1$s</string>
+    <string name="quota_new_period">Waiting for a new reading after reset</string>
+    <string name="quota_details_title">Limit details</string>
+    <string name="quota_first_check">Awaiting the first allowance reading</string>
+    <string name="quota_no_period">No time-based limits in this reading</string>
+    <string name="quota_five_missing">No 5-hour reading</string>
+    <string name="quota_long_missing">No longer-window reading</string>
+    <string name="quota_check_failed">Could not fetch your usage</string>
 </resources>

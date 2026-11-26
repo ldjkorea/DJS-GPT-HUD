@@ -72,7 +72,11 @@ public final class HomeQuotaScheduleNativeTest extends Instrumentation {
                 }
                 LinearLayout empty=new LinearLayout(activity);
                 BetaQuotaUi.addContent(activity,empty,null,true,new ArrayList<>());
-                check(reset(empty,"five-hour").length()==0 && reset(empty,"weekly").length()==0,"No invented reset time without snapshot");
+                for (String key : new String[]{"five-hour", "weekly", "monthly"}) {
+                    check(reset(empty,key) == null, "No invented " + key + " reset without snapshot");
+                    check(empty.findViewWithTag("beta998:quota:" + key + ":value") == null,
+                            "No invented " + key + " percentage without snapshot");
+                }
                 UsageWindow relative=new UsageWindow(100,18000,7200,0);
                 LinearLayout probe=new LinearLayout(activity);
                 BetaQuotaUi.addContent(activity,probe,new UsageSnapshot("plus",true,false,relative,relative,now),true,new ArrayList<>());

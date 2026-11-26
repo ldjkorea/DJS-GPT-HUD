@@ -34,7 +34,32 @@ public final class WeeklyQuotaIndexSelfTest {
         }
     }
 
+
+    private static void verifyWholePercentLabels(java.util.Locale locale, String less, String more) {
+        java.util.Locale.setDefault(locale);
+        double[] inputs = {0, Double.MIN_VALUE, 0.01, 0.5, 0.99, 1, 27, 58.5, 99, 99.1, 99.51, 99.99, 100};
+        String[] used = {"0%", less, less, less, less, "1%", "27%", "59%", "99%", more, more, more, "100%"};
+        String[] remaining = {"100%", more, more, more, more, "99%", "73%", "41%", "1%", less, less, less, "0%"};
+        for (int i = 0; i < inputs.length; i++) {
+            UsageWindow window = new UsageWindow(inputs[i], 604800, 0, 0);
+            check(used[i].equals(UsagePrecision.used(window, 0)), "Used whole percent at " + inputs[i]);
+            check(remaining[i].equals(UsagePrecision.remaining(window, 0)), "Remaining whole percent at " + inputs[i]);
+        }
+        UsageWindow nearlySpent = new UsageWindow(99.51, 604800, 0, 0);
+        check("<1".equals(UsagePrecision.percent(nearlySpent, false, 0, false)), "Symbol-free widget near zero");
+        check(">99".equals(UsagePrecision.percent(nearlySpent, true, 0, false)), "Symbol-free widget near full");
+        check("0.49%".equals(UsagePrecision.remaining(nearlySpent, 2)), "Explicit decimal precision retained");
+        check("—".equals(UsagePrecision.remaining(null, 0)), "Missing quota stays unknown");
+    }
+
     public static void main(String[] args) throws Exception {
+        java.util.Locale savedLocale = java.util.Locale.getDefault();
+        try {
+            verifyWholePercentLabels(java.util.Locale.KOREAN, "1% 미만", "99% 초과");
+            verifyWholePercentLabels(java.util.Locale.ENGLISH, "<1%", ">99%");
+        } finally {
+            java.util.Locale.setDefault(savedLocale);
+        }
         String[] plans = {"Plus", "Pro 100", "Pro 200", "Pro 500"};
         int[] scales = {100, 1_000, 2_000, 5_000};
         for (int i = 0; i < plans.length; i++) {

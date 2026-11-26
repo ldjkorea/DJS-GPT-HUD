@@ -1,5 +1,27 @@
 [
   {
+    "version": "3.1.13",
+    "date": "2026-11-26",
+    "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.13",
+    "origin": "korean",
+    "ko": {
+      "title": "실제 한도에 맞춘 홈과 한도 상세",
+      "changes": [
+        "5시간과 주간 한도를 함께 받으면 두 기간을 표시하고, 주간만 받으면 카드 전체 너비에 표시합니다.",
+        "남은 양이 1% 미만인 경우와 0%를 구분합니다. 한도 상세에서 기간별 사용률과 예상 사용 지수를 확인하세요.",
+        "큰 글씨에서 지수의 분자와 분모를 함께 읽을 수 있고, 주간만 제공되는 Pro에서도 확인한 한도에 맞는 한마디가 나옵니다."
+      ]
+    },
+    "en": {
+      "title": "A home screen that fits your actual limits",
+      "changes": [
+        "See both allowance windows when provided, or a full-width weekly allowance.",
+        "Distinguish less than 1% from zero and see usage by period in limit details.",
+        "Estimated index fractions stay together in large type. Coaching respects verified weekly-only Pro readings."
+      ]
+    }
+  },
+  {
     "version": "3.1.12",
     "date": "2026-11-26",
     "source": "https://github.com/ldjkorea/DJS-GPT-HUD/releases/tag/v3.1.12",

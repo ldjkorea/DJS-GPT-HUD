@@ -6,7 +6,6 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.inspector.WindowInspector;
 import android.widget.CompoundButton;
@@ -96,7 +95,14 @@ public final class WeeklyQuotaIndexNativeTest extends Instrumentation {
     }
 
     private void closeDetails() throws Exception {
-        sendKeyDownUpSync(KeyEvent.KEYCODE_BACK);
+        await("Focused details window can be closed", () -> {
+            for (View root : WindowInspector.getGlobalWindowViews()) {
+                if (root == home.getWindow().getDecorView() || !root.hasWindowFocus()) continue;
+                View close = root.findViewById(android.R.id.button1);
+                if (close != null && close.isShown() && close.isEnabled()) return close.performClick();
+            }
+            return false;
+        });
         await("Home regains focus", () -> home.hasWindowFocus());
     }
 
@@ -191,6 +197,14 @@ public final class WeeklyQuotaIndexNativeTest extends Instrumentation {
             await("The open dialog follows a fresh observation", () -> says(inDialog(USED), "270/1000"));
             closeDetails();
             checkHomeAndDetails("730/1000", "270/1000");
+            await("Single weekly observation gets the available card width", () -> {
+                View card = onHome("beta998:quota");
+                View value = onHome("beta998:quota:weekly:value");
+                if (card == null || card.getWidth() == 0 || value == null) return false;
+                View column = (View) value.getParent();
+                return onHome("beta998:quota:five-hour:value") == null
+                        && column.getWidth() * 4 > card.getWidth() * 3;
+            });
             setEvent(true);
             checkHomeAndDetails("1460/2000", "540/2000");
             check(ui(() -> says(onHome("beta998:quota:weekly:value"), "73")), "Observed percentage kept");
@@ -213,6 +227,18 @@ public final class WeeklyQuotaIndexNativeTest extends Instrumentation {
             homeShows("1460/2000");
             observe("plus", 27, now, now + 3 * DAY);
             checkHomeAndDetails("73/100", "27/100");
+            UsageWindow five = new UsageWindow(42, 18000L, 0, (now + 7200000L) / 1000);
+            UsageWindow weekly = new UsageWindow(27, 604800L, 0, (now + 3 * DAY) / 1000);
+            showSample(new UsageSnapshot("plus", true, false, five, weekly, now));
+            await("Two observed periods show separate remaining percentages on home", () ->
+                    says(onHome("beta998:quota:five-hour:value"), "58%")
+                    && says(onHome("beta998:quota:weekly:value"), "73%"));
+            openDetails();
+            await("Limit details report usage separately for each observed period", () ->
+                    says(inDialog("beta998:quota:five-hour:value"), "42%")
+                    && says(inDialog("beta998:quota:weekly:value"), "27%")
+                    && says(inDialog(USED), "27/100"));
+            closeDetails();
             observe("pro_100", 27, now, now + 3 * DAY);
             homeShows("1460/2000");
             setEvent(false);
@@ -235,7 +261,8 @@ public final class WeeklyQuotaIndexNativeTest extends Instrumentation {
                         && (onHome(REMAINING) == null || !onHome(REMAINING).isShown()));
                 openDetails();
                 await("Unsupported tier still reports the observed usage", () ->
-                        says(inDialog(USED), "27") && !says(inDialog(USED), "/") && inDialog(EVENT) == null);
+                        says(inDialog("beta998:quota:weekly:value"), "27%")
+                        && inDialog(USED) == null && inDialog(EVENT) == null);
                 closeDetails();
             }
             UsageWindow month = new UsageWindow(27, 30 * 86400L, 0, (now + 15 * DAY) / 1000);
@@ -247,7 +274,9 @@ public final class WeeklyQuotaIndexNativeTest extends Instrumentation {
                     && onHome("beta998:quota:weekly:value") == null && onHome(REMAINING) == null);
             openDetails();
             await("Monthly details report actual use without an event or estimate", () ->
-                    says(inDialog("monthly:used"), "27") && inDialog(USED) == null && inDialog(EVENT) == null);
+                    says(inDialog("beta998:quota:monthly:value"), "27%")
+                    && inDialog("beta998:quota:weekly:value") == null
+                    && inDialog(USED) == null && inDialog(EVENT) == null);
             closeDetails();
             observe("prolite", 27, now, now - DAY);
             await("Elapsed window gets no current estimate", () ->

@@ -49,6 +49,25 @@ public final class CoachReliabilitySelfTest {
             }
         }finally{TimeZone.setDefault(original);}
         CoachCatalog catalog=new CoachCatalog(new JSONObject(Files.readString(Path.of(args[0]))));Random random=new Random(9913);JSONObject state=catalog.migrate(new JSONObject());
+        UsageWindow week = window(27,604800,RESET);
+        UsageSnapshot pro = new UsageSnapshot("prolite",true,false,null,week,OBSERVED);
+        String practice = CoachCatalog.group(pro,true,false,false,0,OBSERVED,true);
+        check(CoachCatalog.WEEKLY_PRACTICE.equals(practice),"Confirmed weekly-only Pro has usable evidence");
+        check("missing".equals(CoachCatalog.group(pro,true,false,false,0,OBSERVED,false)),"Unconfirmed plan stays cautious");
+        check("network".equals(CoachCatalog.group(pro,true,true,false,0,OBSERVED,true)),"Failed Pro observation");
+        check("stale".equals(CoachCatalog.group(pro,true,false,false,0,RESET,true)),"Expired Pro observation");
+        check("critical".equals(CoachCatalog.group(new UsageSnapshot("prolite",false,true,null,week,OBSERVED),true,false,false,0,OBSERVED,true)),"Blocked Pro");
+        check("critical".equals(CoachCatalog.group(new UsageSnapshot("prolite",true,false,null,window(99.51,604800,RESET),OBSERVED),true,false,false,0,OBSERVED,true)),"Low weekly quota never invites a prompt");
+        check("missing".equals(CoachCatalog.group(new UsageSnapshot("prolite",true,false,null,window(100,604800,RESET),OBSERVED),true,false,false,0,OBSERVED,true)),"Exhausted counter with unknown credits");
+        JSONObject practiceState=catalog.migrate(new JSONObject());
+        JSONArray hiddenPractice=new JSONArray();
+        for(int i=0;i<40;i++){
+            CoachCatalog.Quote practical=catalog.select(practiceState,practice,"spicy","","w"+i,false,random);
+            check(practical!=null&&practical.id.startsWith("ko.practice.")&&catalog.tips.containsKey(practical.tipId),"Weekly-only offers audited tips");
+            hiddenPractice.put(practical.id);practiceState.put("hidden",hiddenPractice);
+        }
+        check(catalog.select(practiceState,practice,"spicy","","hidden-all",false,random)==null,"Hidden practical tips stay hidden");
+        check(catalog.select(new JSONObject(),practice,"off","","off",false,random)==null,"Weekly-only respects OFF");
         CoachCatalog.Quote first=catalog.select(state,"low","spicy","","same-foreground:low",false,random);String unchanged=state.toString();
         for(int i=0;i<100;i++){check(catalog.select(state,"low","spicy","","same-foreground:low",false,random).id.equals(first.id),"Same-state read/refresh keeps selected ID");check(unchanged.equals(state.toString()),"Same-state read does not grow recent history");}
         ArrayDeque<String> recent=new ArrayDeque<>();

@@ -31,7 +31,7 @@ final class BetaQuotaUi {
         parent.addView(section,new LinearLayout.LayoutParams(-1,-2));
         String expected=SubscriptionStore.accountKey(activity);
         fill(activity,section,snapshot,dark,clockUpdates,true,expected,
-                () -> BetaHomeDetailsUi.show(activity,snapshot,dark,expected));
+                () -> BetaHomeDetailsUi.show(activity,dark,expected));
     }
 
     static void details(MainActivity activity, LinearLayout parent, boolean dark, String account) {
@@ -53,13 +53,25 @@ final class BetaQuotaUi {
         boolean stacked = activity.getResources().getConfiguration().fontScale > 1.3f
                 || activity.getResources().getConfiguration().screenWidthDp < 360;
         LinearLayout meters = new LinearLayout(activity);
-        meters.setOrientation(stacked ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
+        boolean vertical = stacked || !compact;
+        meters.setOrientation(vertical ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
         card.addView(meters, new LinearLayout.LayoutParams(-1, -2));
-        addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.fiveHour,
-                true, dark, stacked, clockUpdates,compact,account);
-        addWindow(activity, meters, snapshot, snapshot == null ? null : snapshot.longWindow(),
-                false, dark, stacked, clockUpdates,compact,account);
-        if (snapshot == null && onDetails == null) return;
+        UsageWindow five = snapshot == null ? null : snapshot.fiveHour;
+        UsageWindow longer = snapshot == null ? null : snapshot.longWindow();
+        String longKey = snapshot != null && snapshot.longWindowIsMonthly() ? "monthly" : "weekly";
+        if (compact && five != null)
+            addWindow(activity, meters, snapshot, five, "five-hour", dark, vertical, clockUpdates, true, account);
+        if (longer != null)
+            addWindow(activity, meters, snapshot, longer, longKey, dark, vertical, clockUpdates, compact, account);
+        if (!compact && five != null)
+            addWindow(activity, meters, snapshot, five, "five-hour", dark, vertical, clockUpdates, false, account);
+        if (!compact && snapshot != null && snapshot.weekly != null && snapshot.monthly != null)
+            addWindow(activity, meters, snapshot, snapshot.monthly, "monthly", dark, true, clockUpdates, false, account);
+        if (five == null && longer == null) {
+            int message = snapshot != null ? R.string.quota_no_period :
+                    AppPreferences.getLastError(activity).isEmpty() ? R.string.quota_first_check : R.string.quota_check_failed;
+            meters.addView(BetaUi.note(activity, activity.getString(message), dark));
+        }
         LinearLayout footer=new LinearLayout(activity);
         footer.setGravity(Gravity.CENTER_VERTICAL);
         footer.setOrientation(stacked?LinearLayout.VERTICAL:LinearLayout.HORIZONTAL);
@@ -73,15 +85,39 @@ final class BetaQuotaUi {
             footer.addView(observed,new LinearLayout.LayoutParams(stacked?-1:0,-2,stacked?0:1));
             Runnable common=()->{
                 String text=BetaExperienceUi.t(activity,"마지막 확인 · %s","Last checked · %s",UsageFormat.absolute(activity,snapshot.fetchedAtMillis,System.currentTimeMillis()));
+                if (five == null && longer != null)
+                    text += " · " + activity.getString(R.string.quota_five_missing);
+                else if (five != null && longer == null)
+                    text += " · " + activity.getString(R.string.quota_long_missing);
                 UsageEvidence.State state=commonState(activity,snapshot);
                 if(compact&&state!=null)text+="\n"+activity.getString(statusResource(state));
                 observed.setText(text);
             };clockUpdates.add(common);common.run();
         }
+        if (!compact && account != null) {
+            Button retry = Ui.button(activity, activity.getString(R.string.ui_refresh_56e3ba), false, dark);
+            retry.setMinHeight(Ui.dp(activity, 48));
+            retry.setOnClickListener(v -> {
+                if (account.equals(SubscriptionStore.accountKey(activity))) activity.refreshNow(retry);
+            });
+            card.addView(retry);
+            Runnable updateRetry = () -> {
+                long now = System.currentTimeMillis();
+                boolean failed = !AppPreferences.getLastError(activity).isEmpty();
+                int interval = RefreshScheduler.effectiveRefreshMinutes(activity);
+                boolean needed = (five == null && longer == null) || failed
+                        || needsReading(snapshot, five, now, interval)
+                        || needsReading(snapshot, longer, now, interval)
+                        || (snapshot != null && needsReading(snapshot, snapshot.monthly, now, interval));
+                retry.setVisibility(needed ? android.view.View.VISIBLE : android.view.View.GONE);
+            };
+            clockUpdates.add(updateRetry);
+            updateRetry.run();
+        }
         if(onDetails!=null){
             Button details=BetaUi.action(activity,BetaExperienceUi.t(activity,"한도 상세","Limit details"),false,dark,onDetails);
             details.setTag("home:quota-details");
-            details.setContentDescription(BetaExperienceUi.t(activity,"한도·내 상태 상세","Limits and status details"));
+            details.setContentDescription(details.getText());
             details.setTextSize(14);
             details.setPadding(Ui.dp(activity,10),0,Ui.dp(activity,10),0);
             android.util.TypedValue ripple=new android.util.TypedValue();
@@ -92,15 +128,15 @@ final class BetaQuotaUi {
     }
 
     private static void addWindow(MainActivity activity, LinearLayout parent,
-            UsageSnapshot snapshot, UsageWindow window, boolean fiveHour, boolean dark,
+            UsageSnapshot snapshot, UsageWindow window, String key, boolean dark,
             boolean stacked, List<Runnable> clockUpdates,boolean compact,String account) {
-        boolean monthly = !fiveHour && snapshot != null && snapshot.longWindowIsMonthly();
-        String key = fiveHour ? "five-hour" : monthly ? "monthly" : "weekly";
+        boolean monthly = "monthly".equals(key);
+        boolean fiveHour = "five-hour".equals(key);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(stacked ? -1 : 0, -2,
                 stacked ? 0 : 1);
-        if (!fiveHour) {
+        if (parent.getChildCount() > 0) {
             if (stacked) params.topMargin = Ui.dp(activity, 16);
             else{
                 android.view.View divider=new android.view.View(activity);
@@ -112,39 +148,31 @@ final class BetaQuotaUi {
             }
         }
         parent.addView(column, params);
-        String label = monthly ? activity.getString(R.string.quota_month_remaining) : BetaExperienceUi.t(activity,
-                fiveHour ? "5시간 한도 남음" : "주간 한도 남음",
-                fiveHour ? "5-hour remaining" : "Weekly remaining");
-        TextView heading=BetaUi.text(activity,label,14,Ui.secondaryText(dark),false);
+        int title = fiveHour ? (compact ? R.string.quota_five_remaining : R.string.quota_five_used)
+                : monthly ? (compact ? R.string.quota_month_remaining : R.string.quota_month_used_heading)
+                : compact ? R.string.quota_week_remaining : R.string.quota_week_used_heading;
+        TextView heading = BetaUi.text(activity, activity.getString(title), 14, Ui.secondaryText(dark), false);
         column.addView(heading);
-        TextView value = BetaUi.text(activity, window == null ? "—"
-                : UsagePrecision.remaining(window, AppPreferences.usageDecimalPlaces(activity)),
-                32, Ui.mainText(dark), true);
+        int precision = AppPreferences.usageDecimalPlaces(activity);
+        String percent = compact ? UsagePrecision.remaining(window, precision) : UsagePrecision.used(window, precision);
+        TextView value = BetaUi.text(activity, percent, 32, Ui.mainText(dark), true);
         Ui.styleDigits(value,true);
-        if(window!=null&&window.preciseUsedPercent>=100)value.setTextColor(BetaUi.warning(dark));
+        if(window.preciseUsedPercent>=100)value.setTextColor(BetaUi.warning(dark));
         value.setTag("beta998:quota:" + key + ":value");
-        value.setContentDescription(label + ": " + value.getText());
+        value.setContentDescription(heading.getText() + " · " + percent);
         column.addView(value);
         ProgressBar progress = Ui.progress(activity, dark);
         progress.setMax(100000);
-        progress.setProgress(window == null ? 0 : (int) Math.round((100 - window.preciseUsedPercent) * 1000));
+        progress.setProgress((int) Math.round((compact ? 100 - window.preciseUsedPercent : window.preciseUsedPercent) * 1000));
         progress.setProgressTintList(ColorStateList.valueOf(Ui.accent(activity, dark)));
         progress.setProgressBackgroundTintList(ColorStateList.valueOf(dark?0xff476065:0xffc7d3cc));
-        progress.setVisibility(window == null ? android.view.View.GONE : android.view.View.VISIBLE);
         progress.setImportantForAccessibility(android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         LinearLayout.LayoutParams bar=new LinearLayout.LayoutParams(-1,Ui.dp(activity,6));
         bar.bottomMargin=Ui.dp(activity,3);
         column.addView(progress,bar);
-        if (monthly && !compact) {
-            TextView used = BetaUi.note(activity, activity.getString(R.string.quota_month_used,
-                    UsagePrecision.used(window, AppPreferences.usageDecimalPlaces(activity))), dark);
-            used.setTag("monthly:used");
-            column.addView(used);
-        } else if (!fiveHour && !monthly) {
+        if (!fiveHour && !monthly)
             WeeklyQuotaIndexUi.add(activity, column, snapshot, account, dark,
-                    compact ? WeeklyQuotaIndexUi.Display.REMAINING : WeeklyQuotaIndexUi.Display.USED_WITH_PERCENT,
-                    clockUpdates);
-        }
+                    compact ? WeeklyQuotaIndexUi.Display.REMAINING : WeeklyQuotaIndexUi.Display.USED, clockUpdates);
         TextView status = BetaUi.note(activity, "", dark);
         status.setTextSize(13);
         status.setTag("beta998:quota:" + key + ":status");
@@ -154,13 +182,6 @@ final class BetaQuotaUi {
         reset.setTag("beta998:quota:" + key + ":reset");
         column.addView(reset);
         Runnable update = () -> {
-            if (window == null) {
-                status.setText(BetaExperienceUi.t(activity,
-                        snapshot == null ? "사용량 확인 필요" : "제공된 한도 없음",
-                        snapshot == null ? "Check usage first" : "Limit not provided"));
-                reset.setText("");
-                return;
-            }
             long now = System.currentTimeMillis();
             UsageEvidence.State state = UsageEvidence.state(snapshot, window,
                     !AppPreferences.getLastError(activity).isEmpty(), now,
@@ -173,6 +194,20 @@ final class BetaQuotaUi {
             status.setText(resource);
             status.setVisibility(state==UsageEvidence.State.CONFIRMED||compact&&state==commonState(activity,snapshot)?android.view.View.GONE:android.view.View.VISIBLE);
             long resetAt = window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+            boolean expired = resetAt > 0 && resetAt <= now;
+            boolean current = state == UsageEvidence.State.CONFIRMED && !expired;
+            String headingText = current ? activity.getString(title) :
+                    activity.getString(R.string.quota_last_value, activity.getString(title));
+            if (!headingText.contentEquals(heading.getText())) heading.setText(headingText);
+            value.setVisibility(expired ? android.view.View.GONE : android.view.View.VISIBLE);
+            progress.setVisibility(expired ? android.view.View.GONE : android.view.View.VISIBLE);
+            if (expired) {
+                heading.setText(title);
+                status.setText(R.string.quota_new_period);
+                status.setVisibility(android.view.View.VISIBLE);
+            } else {
+                value.setContentDescription(headingText + " · " + percent);
+            }
             if (resetAt > now) {
                 String absolute=UsageFormat.absolute(activity,resetAt,now);
                 String schedule=activity.getString(R.string.home_quota_reset_schedule,absolute,
@@ -203,6 +238,10 @@ final class BetaQuotaUi {
         clockUpdates.add(update);
         update.run();
     }
+    private static boolean needsReading(UsageSnapshot snapshot, UsageWindow window, long now, int interval) {
+        return window != null && UsageEvidence.state(snapshot, window, false, now, interval) != UsageEvidence.State.CONFIRMED;
+    }
+
     private static UsageEvidence.State commonState(MainActivity a,UsageSnapshot snapshot){
         if(snapshot==null||snapshot.fiveHour==null||snapshot.longWindow()==null)return null;
         long now=System.currentTimeMillis();boolean failed=!AppPreferences.getLastError(a).isEmpty();int interval=RefreshScheduler.effectiveRefreshMinutes(a);

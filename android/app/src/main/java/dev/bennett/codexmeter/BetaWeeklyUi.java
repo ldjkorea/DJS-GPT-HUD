@@ -31,7 +31,16 @@ final class BetaWeeklyUi {
         TextView evidence=BetaUi.note(a,"",dark);evidence.setTag("beta999:weekly-evidence");card.addView(evidence);
         Runnable update=()->{
             UsageEvidence.State state=UsageEvidence.state(snapshot,window,!AppPreferences.getLastError(a).isEmpty(),System.currentTimeMillis(),RefreshScheduler.effectiveRefreshMinutes(a));
-            int id=state==UsageEvidence.State.CACHED_AFTER_FAILURE?R.string.phase_a_cached_failed:state==UsageEvidence.State.RESET_PASSED?R.string.phase_a_reset_passed:state==UsageEvidence.State.STALE?R.string.phase_a_stale:state==UsageEvidence.State.UNAVAILABLE?R.string.phase_a_unavailable:R.string.phase_a_confirmed;
+            long resetAt=window.effectiveResetAtMillis(snapshot.fetchedAtMillis);
+            boolean expired=resetAt>0 && resetAt<=System.currentTimeMillis();
+            value.setVisibility(expired ? View.GONE : View.VISIBLE);
+            if (!expired) {
+                String used=UsagePrecision.used(window,AppPreferences.usageDecimalPlaces(a));
+                String label=state==UsageEvidence.State.CONFIRMED ? t(a,"%s 사용","%s used",used)
+                        : t(a,"마지막 확인 시 %s 사용","%s used at last check",used);
+                if (!label.contentEquals(value.getText())) value.setText(label);
+            }
+            int id=expired?R.string.quota_new_period:state==UsageEvidence.State.CACHED_AFTER_FAILURE?R.string.phase_a_cached_failed:state==UsageEvidence.State.RESET_PASSED?R.string.phase_a_reset_passed:state==UsageEvidence.State.STALE?R.string.phase_a_stale:state==UsageEvidence.State.UNAVAILABLE?R.string.phase_a_unavailable:R.string.phase_a_confirmed;
             evidence.setText(id);evidence.setVisibility(state==UsageEvidence.State.CONFIRMED?android.view.View.GONE:android.view.View.VISIBLE);
         };clocks.add(update);update.run();
         LinearLayout graph=new LinearLayout(a);graph.setOrientation(LinearLayout.VERTICAL);graph.setTag("beta999:weekly-graph");card.addView(graph);
@@ -78,7 +87,7 @@ final class BetaWeeklyUi {
             boolean dark,String graphAccount,String graphStamp){
         graph.removeAllViews();graph.setOnClickListener(null);graph.setClickable(false);graph.setFocusable(false);
         if(model==null||model.days.isEmpty()||model.measuredDays==0){
-            TextView empty=BetaUi.note(a,model!=null&&model.recordedDays>0?t(a,"변화를 비교할 기록이 더 필요해요","More observations are needed to compare changes"):t(a,"아직 일별 기록이 없어요","No daily records yet"),dark);empty.setTag("beta999:weekly-missing");graph.addView(empty);return;
+            TextView empty=BetaUi.note(a,model!=null&&model.recordedDays>0?t(a,"변화를 비교할 기록이 더 필요해요","More observations are needed to compare changes"):t(a,"날짜별 변화는 관측이 쌓이면 표시돼요","Daily changes appear as observations accumulate"),dark);empty.setTag("beta999:weekly-missing");graph.addView(empty);return;
         }
 
         TextView legend=BetaUi.note(a,t(a,"일별 관측 증가 · 전체 사용량과 별도","Observed daily changes · not total usage"),dark);

@@ -45,7 +45,7 @@ final class UsageInsightDisplay {
         UsageInsights.Weekly insight = UsageInsights.weekly(snapshot.weekly,
                 AppPreferences.loadUsageHistory(context, UsageHistory.WEEKLY),
                 snapshot.fetchedAtMillis, now, normalRefreshMinutes(context, snapshot, now));
-        if (snapshot.weekly.remainingPercent() == 0) {
+        if (snapshot.weekly.preciseUsedPercent >= 100) {
             rows.addView(Ui.text(context, context.getString(R.string.insight_exhausted),
                     12, Ui.secondaryText(dark)));
         } else if (!insight.available) {

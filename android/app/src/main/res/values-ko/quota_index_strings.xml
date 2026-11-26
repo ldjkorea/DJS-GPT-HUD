@@ -1,12 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="quota_index_remaining">예상 잔여 지수 · %1$,d / %2$,d</string>
-    <string name="quota_index_used">예상 사용 지수 · %1$,d / %2$,d</string>
-    <string name="quota_index_doubled">%1$s · 2배</string>
-    <string name="quota_week_used">이번 주 사용 · %1$s</string>
+    <string name="quota_index_remaining">예상 잔여 지수 · %1$,d\u00a0/\u00a0%2$,d</string>
+    <string name="quota_index_used">예상 사용 지수 · %1$,d\u00a0/\u00a0%2$,d</string>
+    <string name="quota_index_doubled">%1$s · 수동 2배</string>
     <string name="quota_month_remaining">월간 한도 남음</string>
-    <string name="quota_month_used">마지막 확인 시 월간 사용 · %1$s</string>
-    <string name="quota_week_last_used">마지막 확인 시 주간 사용 · %1$s</string>
-    <string name="quota_event_switch">예상 지수에 2배 이벤트 적용</string>
-    <string name="quota_index_explanation">Plus 주간 한도를 100으로 둔 비교값입니다. 2배 한도 이벤트 대상이면 켜세요. 직접 끌 때까지 이 계정·요금제의 예상 지수에 2배를 적용합니다.</string>
+    <string name="quota_event_switch">예상 지수에 수동 2배 적용</string>
+    <string name="quota_index_explanation">%1$s 기본 지수 %2$,d · Plus 한 주 = 100\n이 계정·요금제의 표시 배율만 바뀝니다. 이벤트가 끝나면 꺼 주세요.</string>
+    <string name="quota_five_remaining">5시간 한도 남음</string>
+    <string name="quota_five_used">최근 5시간 사용</string>
+    <string name="quota_week_remaining">주간 한도 남음</string>
+    <string name="quota_week_used_heading">이번 주 사용</string>
+    <string name="quota_month_used_heading">이번 달 사용</string>
+    <string name="quota_last_value">마지막 확인 시 · %1$s</string>
+    <string name="quota_new_period">초기화 후 새 수치를 확인해야 해요</string>
+    <string name="quota_details_title">한도 상세</string>
+    <string name="quota_first_check">첫 한도 확인이 필요해요</string>
+    <string name="quota_no_period">이번 조회에 기간별 한도가 없어요</string>
+    <string name="quota_five_missing">5시간 수치 미제공</string>
+    <string name="quota_long_missing">장기 한도 수치 미제공</string>
+    <string name="quota_check_failed">사용량을 확인하지 못했어요</string>
 </resources>

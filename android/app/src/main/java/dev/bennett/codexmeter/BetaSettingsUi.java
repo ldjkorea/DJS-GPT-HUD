@@ -20,6 +20,11 @@ final class BetaSettingsUi {
 
         LinearLayout display=BetaUi.group(parent,t(a,"화면·한마디·알림","Display, coach and notifications"),dark);
         CoachUi.settings(a,display,dark);
+        display.addView(BetaUi.row(a,t(a,"저장된 인용","Saved excerpt"),"",dark,()->{
+            LinearLayout excerpt=BetaMedalUi.content(a);
+            TiboQuote.add(a,excerpt,dark);
+            BetaMedalUi.show(a,t(a,"저장된 인용","Saved excerpt"),excerpt);
+        }));
         display.addView(BetaUi.row(a,BetaCopy.t(a,"language"),AppLanguage.currentName(a),dark,()->AppLanguage.show(a,false)));
         String theme=AppPreferences.getAppTheme(a);
         String themeLabel=WidgetOptions.THEME_DARK.equals(theme)?t(a,"어둡게","Dark")

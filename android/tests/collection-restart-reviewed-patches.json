@@ -161,6 +161,10 @@
     [
       "        return format.format(value.setScale(digits, RoundingMode.HALF_UP));\n    }\n    public static String percent(UsageWindow window,boolean used,int digits,boolean symbol) {\n        if(window==null)return \"—\";\n        BigDecimal value=BigDecimal.valueOf(window.preciseUsedPercent);\n        if(!used)value=BigDecimal.valueOf(100).subtract(value);\n        return number(value,digits)+(symbol?\"%\":\"\");\n    }\n",
       "        return format.format(value.setScale(digits, RoundingMode.HALF_UP));\n    }\n    public static String percent(UsageWindow window,boolean used,int digits,boolean symbol) {\n        if(window==null)return \"—\";\n        if(digits==0)return Integer.toString(used?window.usedPercent:window.remainingPercent())+(symbol?\"%\":\"\");\n        BigDecimal value=BigDecimal.valueOf(window.preciseUsedPercent);\n        if(!used)value=BigDecimal.valueOf(100).subtract(value);\n        return number(value,digits)+(symbol?\"%\":\"\");\n    }\n"
+    ],
+    [
+      "        if(digits==0)return Integer.toString(used?window.usedPercent:window.remainingPercent())+(symbol?\"%\":\"\");",
+      "        if (digits == 0) {\n            double raw = window.preciseUsedPercent;\n            boolean nearEmpty = raw > 0 && raw < 1;\n            boolean nearFull = raw > 99 && raw < 100;\n            if (nearEmpty || nearFull) {\n                boolean belowOne = used ? nearEmpty : nearFull;\n                // Preserve the widget option to hide the percent symbol.\n                if (!symbol) return belowOne ? \"<1\" : \">99\";\n                if (\"ko\".equals(Locale.getDefault().getLanguage())) {\n                    return belowOne ? \"1% 미만\" : \"99% 초과\";\n                }\n                return belowOne ? \"<1%\" : \">99%\";\n            }\n            int value = used ? window.usedPercent : window.remainingPercent();\n            return Integer.toString(value) + (symbol ? \"%\" : \"\");\n        }"
     ]
   ]
 }

@@ -27,10 +27,15 @@ final class SpicyQuotes {
     static synchronized void manual(){generation++;}
     private static String selectionIdentity(Context c,String account){return account+":"+CoachPolicy.tone(c)+":"+interest(c)+":"+c.getResources().getConfiguration().getLocales().toLanguageTags()+":20261024-banter";}
     static String identity(Context c,String account){return selectionIdentity(c,account)+":"+evidence(c);}
+    static String group(UsageSnapshot snapshot, boolean fresh, boolean error, boolean bonus, double daily, long now) {
+        String plan = WeeklyQuotaIndex.planFor(snapshot);
+        boolean verifiedPro = plan != null && plan.startsWith("pro");
+        return CoachCatalog.group(snapshot, fresh, error, bonus, daily, now, verifiedPro);
+    }
     private static String evidence(Context c){
         UsageSnapshot s=AppPreferences.loadSnapshot(c);boolean error=!AppPreferences.getLastError(c).isEmpty();long now=System.currentTimeMillis();
         boolean fresh=s!=null&&UsageEvidence.state(s,s.longWindow(),error,now,RefreshScheduler.effectiveRefreshMinutes(c))==UsageEvidence.State.CONFIRMED;
-        try{return (s==null?"missing":s.toJson().toString())+":"+CoachCatalog.group(s,fresh,error,false,Double.NaN,now);}
+        try{return (s==null?"missing":s.toJson().toString())+":"+group(s,fresh,error,false,Double.NaN,now);}
         catch(Exception ignored){return "missing:"+error;}
     }
     static String cacheKey(Context c,String account){return identity(c,account)+":"+generation+":"+medalStamp(c);}
@@ -50,7 +55,8 @@ final class SpicyQuotes {
         if(snapshot==null?currentSnapshot!=null:currentSnapshot==null||!snapshot.toJson().toString().equals(currentSnapshot.toJson().toString()))return null;
         android.content.SharedPreferences prefs=c.getSharedPreferences("coach_v2",0);JSONObject state;
         try{state=new JSONObject(prefs.getString(account,""));}catch(Exception missing){String legacyKey=SubscriptionStore.key(c,snapshot);JSONObject old;try{old=new JSONObject(c.getSharedPreferences("spicy_quote_ids",0).getString(legacyKey,""));}catch(Exception ignored){old=new JSONObject();}state=content.migrate(old);}
-        String group=BetaMedalCoach.group(BetaMedalStore.peek(c),CoachCatalog.group(snapshot,fresh,!AppPreferences.getLastError(c).isEmpty(),bonus,daily,now),now);
+        String base = group(snapshot, fresh, !AppPreferences.getLastError(c).isEmpty(), bonus, daily, now);
+        String group = CoachCatalog.WEEKLY_PRACTICE.equals(base) ? base : BetaMedalCoach.group(BetaMedalStore.peek(c),base,now);
         CoachCatalog.Quote q=content.select(state,group,CoachPolicy.tone(c),interest(c),selectionIdentity(c,account)+":"+epoch+":"+group,false,RANDOM);
         if(epoch!=generation||!identity.equals(identity(c,account))||!account.equals(SubscriptionStore.accountKey(c)))return null;
         prefs.edit().putString(account,state.toString()).apply();
